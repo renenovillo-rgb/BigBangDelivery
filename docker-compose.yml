@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: big_ban_postgres_db
+    restart: always
+    environment:
+      POSTGRES_DB: big_ban_community_db
+      POSTGRES_USER: big_ban_user
+      POSTGRES_PASSWORD: big_ban_secure_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U big_ban_user -d big_ban_community_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
