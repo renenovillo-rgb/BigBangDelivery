@@ -1,45 +1,45 @@
 import { useState } from 'react';
-import { type ProductStoryRequest, StoryStatus } from '../../types/story';
+import type { SolicitudHistoriaProducto, EstadoHistoria } from '../../types';
 
 // Datos de prueba alineados con los 3 estados oficiales de StoryStatus
-const INITIAL_STORY_REQUESTS: ProductStoryRequest[] = [
+const INITIAL_STORY_REQUESTS: SolicitudHistoriaProducto[] = [
   {
     id: '1',
-    storyCode: 'HIS-001',
-    productId: 'PROD-001',
-    productName: 'Miel Artesanal 500g',
-    sellerId: 'SEL-001',
-    proposedStory:
+    codigoHistoria: 'HIS-001',
+    productoId: 'PROD-001',
+    nombreProducto: 'Miel Artesanal 500g',
+    vendedorId: 'SEL-001',
+    historiaPropuesta:
       'Esta miel se extrae de colmenas ubicadas en los valles altoandinos. Las familias apicultoras locales mantienen un proceso 100% orgánico sin refinados artificiales, preservando el ecosistema de abejas nativas.',
     mediaUrl: 'https://images.unsplash.com/photo-1587049352847-4a222e784d38',
-    status: StoryStatus.PUBLISHED,
-    adminFeedback: '¡Excelente narrativa! Ya está publicada en la sección destacada de la tienda.',
-    createdAt: '2026-10-20 14:30',
+    estado: 'PUBLICADA',
+    observacionesAdmin: '¡Excelente narrativa! Ya está publicada en la sección destacada de la tienda.',
+    fechaCreacion: '2026-10-20 14:30',
   },
   {
     id: '2',
-    storyCode: 'HIS-002',
-    productId: 'PROD-002',
-    productName: 'Queso Andino Madurado',
-    sellerId: 'SEL-001',
-    proposedStory:
+    codigoHistoria: 'HIS-002',
+    productoId: 'PROD-002',
+    nombreProducto: 'Queso Andino Madurado',
+    vendedorId: 'SEL-001',
+    historiaPropuesta:
       'Producido con leche de vacas alimentadas solo con pasto natural en zonas altas de Cuenca. Su maduración artesanal de 60 días le otorga un sabor único.',
     mediaUrl: '',
-    status: StoryStatus.IN_REVIEW,
-    createdAt: '2026-10-25 09:15',
+    estado: 'EN_REVISION',
+    fechaCreacion: '2026-10-25 09:15',
   },
   {
     id: '3',
-    storyCode: 'HIS-003',
-    productId: 'PROD-003',
-    productName: 'Asesoría en Huertos Urbanos',
-    sellerId: 'SEL-001',
-    proposedStory: 'Enseñamos a cultivar alimentos en espacios reducidos de la ciudad.',
+    codigoHistoria: 'HIS-003',
+    productoId: 'PROD-003',
+    nombreProducto: 'Asesoría en Huertos Urbanos',
+    vendedorId: 'SEL-001',
+    historiaPropuesta: 'Enseñamos a cultivar alimentos en espacios reducidos de la ciudad.',
     mediaUrl: '',
-    status: StoryStatus.REJECTED,
-    adminFeedback:
+    estado: 'RECHAZADA',
+    observacionesAdmin:
       'La historia es muy corta. Por favor amplía la descripción indicando la experiencia de los instructores y fotos del proceso.',
-    createdAt: '2026-10-18 11:00',
+    fechaCreacion: '2026-10-18 11:00',
   },
 ];
 
@@ -50,9 +50,9 @@ const MY_PRODUCTS = [
 ];
 
 export const SellerStoriesPage = () => {
-  const [requests, setRequests] = useState<ProductStoryRequest[]>(INITIAL_STORY_REQUESTS);
+  const [requests, setRequests] = useState<SolicitudHistoriaProducto[]>(INITIAL_STORY_REQUESTS);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<ProductStoryRequest | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<SolicitudHistoriaProducto | null>(null);
 
   // Formulario nueva postulación
   const [newStory, setNewStory] = useState({
@@ -72,16 +72,16 @@ export const SellerStoriesPage = () => {
     const selectedProd = MY_PRODUCTS.find((p) => p.id === newStory.productId);
     const nextNumber = requests.length + 1;
 
-    const created: ProductStoryRequest = {
+    const created: SolicitudHistoriaProducto = {
       id: `HIS-${Date.now()}`,
-      storyCode: `HIS-00${nextNumber}`,
-      productId: newStory.productId,
-      productName: selectedProd?.name || 'Producto',
-      sellerId: 'SEL-001',
-      proposedStory: newStory.proposedStory,
+      codigoHistoria: `HIS-00${nextNumber}`,
+      productoId: newStory.productId,
+      nombreProducto: selectedProd?.name || 'Producto',
+      vendedorId: 'SEL-001',
+      historiaPropuesta: newStory.proposedStory,
       mediaUrl: newStory.mediaUrl,
-      status: StoryStatus.IN_REVIEW,
-      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      estado: 'EN_REVISION' as EstadoHistoria,
+      fechaCreacion: new Date().toISOString().replace('T', ' ').substring(0, 16),
     };
 
     setRequests([created, ...requests]);
@@ -118,32 +118,32 @@ export const SellerStoriesPage = () => {
               <div className="flex justify-between items-start border-b border-gray-100 pb-3">
                 <div>
                   <span className="text-[11px] font-mono font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                    {item.storyCode}
+                    {item.codigoHistoria}
                   </span>
-                  <h3 className="font-bold text-gray-900 text-sm mt-1">{item.productName}</h3>
+                  <h3 className="font-bold text-gray-900 text-sm mt-1">{item.nombreProducto}</h3>
                   <span className="text-[11px] text-gray-400 block mt-0.5">
-                    Enviado: {item.createdAt}
+                    Enviado: {item.fechaCreacion}
                   </span>
                 </div>
                 <span
                   className={`inline-block px-2.5 py-1 text-[11px] font-semibold rounded-full uppercase tracking-wider ${
-                    item.status === StoryStatus.IN_REVIEW
+                    item.estado === 'EN_REVISION'
                       ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : item.status === StoryStatus.PUBLISHED
+                      : item.estado === 'PUBLICADA'
                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                       : 'bg-rose-100 text-rose-800 border border-rose-200'
                   }`}
                 >
-                  {item.status === StoryStatus.IN_REVIEW && 'En Revisión'}
-                  {item.status === StoryStatus.PUBLISHED && 'Publicada'}
-                  {item.status === StoryStatus.REJECTED && 'Rechazada'}
+                  {item.estado === 'EN_REVISION' && 'En Revisión'}
+                  {item.estado === 'PUBLICADA' && 'Publicada'}
+                  {item.estado === 'RECHAZADA' && 'Rechazada'}
                 </span>
               </div>
 
               {/* Cuerpo del Borrador */}
               <div className="text-xs text-gray-700 space-y-2">
                 <p className="italic bg-stone-50 p-3 rounded-xl border border-stone-200/70 leading-relaxed">
-                  "{item.proposedStory}"
+                  "{item.historiaPropuesta}"
                 </p>
                 {item.mediaUrl && (
                   <a
@@ -158,20 +158,20 @@ export const SellerStoriesPage = () => {
               </div>
 
               {/* Retroalimentación del Admin si fue Aprobada o Rechazada */}
-              {item.adminFeedback && (
+              {item.observacionesAdmin && (
                 <div
                   className={`p-3 rounded-xl border text-xs space-y-1 ${
-                    item.status === StoryStatus.REJECTED
+                    item.estado === 'RECHAZADA'
                       ? 'bg-rose-50 border-rose-200 text-rose-900'
                       : 'bg-emerald-50 border-emerald-200 text-emerald-900'
                   }`}
                 >
                   <strong className="block text-[11px] uppercase tracking-wider font-bold">
-                    {item.status === StoryStatus.REJECTED
+                    {item.estado === 'RECHAZADA'
                       ? 'Motivo de Rechazo / Observaciones:'
                       : 'Mensaje del Admin:'}
                   </strong>
-                  <p className="leading-relaxed">{item.adminFeedback}</p>
+                  <p className="leading-relaxed">{item.observacionesAdmin}</p>
                 </div>
               )}
             </div>
@@ -266,43 +266,43 @@ export const SellerStoriesPage = () => {
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 border border-gray-100">
             <div className="flex justify-between items-center border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-teal-900">
-                Detalle de Solicitud <span className="font-mono text-amber-800">{selectedRequest.storyCode}</span>
+                Detalle de Solicitud <span className="font-mono text-amber-800">{selectedRequest.codigoHistoria}</span>
               </h3>
               <span
                 className={`px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase ${
-                  selectedRequest.status === StoryStatus.IN_REVIEW
+                  selectedRequest.estado === 'EN_REVISION'
                     ? 'bg-amber-100 text-amber-800'
-                    : selectedRequest.status === StoryStatus.PUBLISHED
+                    : selectedRequest.estado === 'PUBLICADA'
                     ? 'bg-emerald-100 text-emerald-800'
                     : 'bg-rose-100 text-rose-800'
                 }`}
               >
-                {selectedRequest.status}
+                {selectedRequest.estado}
               </span>
             </div>
 
             <div className="space-y-3 text-xs text-gray-700">
-              <p><strong className="text-gray-900">Producto:</strong> {selectedRequest.productName}</p>
-              <p><strong className="text-gray-900">Fecha de Envío:</strong> {selectedRequest.createdAt}</p>
+              <p><strong className="text-gray-900">Producto:</strong> {selectedRequest.nombreProducto}</p>
+              <p><strong className="text-gray-900">Fecha de Envío:</strong> {selectedRequest.fechaCreacion}</p>
 
               <div>
                 <strong className="text-gray-900 block mb-1">Borrador Enviado:</strong>
                 <p className="bg-stone-50 p-3 rounded-xl border border-stone-200/80 leading-relaxed text-gray-800">
-                  {selectedRequest.proposedStory}
+                  {selectedRequest.historiaPropuesta}
                 </p>
               </div>
 
-              {selectedRequest.adminFeedback && (
+              {selectedRequest.observacionesAdmin && (
                 <div>
                   <strong className="text-gray-900 block mb-1">Retroalimentación del Administrador:</strong>
                   <p
                     className={`p-3 rounded-xl border font-medium ${
-                      selectedRequest.status === StoryStatus.REJECTED
+                      selectedRequest.estado === 'RECHAZADA'
                         ? 'bg-rose-50 border-rose-200 text-rose-800'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-800'
                     }`}
                   >
-                    {selectedRequest.adminFeedback}
+                    {selectedRequest.observacionesAdmin}
                   </p>
                 </div>
               )}

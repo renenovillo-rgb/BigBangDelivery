@@ -1,20 +1,20 @@
 import { useState } from 'react';
-import type { SellerProfile, ProfileUpdateRequest } from '../../types/seller';
+import type { PerfilVendedor, SolicitudActualizacionPerfil } from '../../types';
 
 // Datos simulados del vendedor alineados con el esquema de la DB y el SRI
-const INITIAL_PROFILE: SellerProfile = {
+const INITIAL_PROFILE: PerfilVendedor = {
   id: 'SEL-001',
-  userId: 'USR-001',
-  fullName: 'Alexis Sebastian Gómez',
-  tradeName: 'Distribuidora Gómez & Hijos',
-  photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+  usuarioId: 'USR-001',
+  nombreCompleto: 'Alexis Sebastian Gómez',
+  nombreComercial: 'Distribuidora Gómez & Hijos',
+  fotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
   email: 'alexis.gomez@ejemplo.com',
-  phone: '0998765432',
-  taxId: '0102030405001', // RUC de 13 dígitos
-  businessAddress: 'Av. Huayna Cápac y Calle Larga, Cuenca',
-  establishment: '001',
-  emissionPoint: '001',
-  isEditable: false,
+  telefono: '0998765432',
+  identificacionFiscal: '0102030405001',
+  direccionNegocio: 'Av. Huayna Cápac y Calle Larga, Cuenca',
+  establecimiento: '001',
+  puntoEmision: '001',
+  esEditable: false,
 };
 
 // Productos simulados para vincular a la solicitud de historia
@@ -25,20 +25,17 @@ const MY_PRODUCTS = [
 ];
 
 export const SellerProfilePage = () => {
-  const [profile] = useState<SellerProfile>(INITIAL_PROFILE);
+  const [profile] = useState<PerfilVendedor>(INITIAL_PROFILE);
 
-  // Modales
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
 
-  // Formulario Solicitud de Cambio de Datos
-  const [fieldToUpdate, setFieldToUpdate] = useState<
-    'businessAddress' | 'phone' | 'email' | 'taxId' | 'tradeName'
-  >('businessAddress');
-  const [newValue, setNewValue] = useState('');
-  const [reason, setReason] = useState('');
+  const [campoAModificar, setCampoAModificar] = useState<
+    'telefono' | 'email' | 'identificacionFiscal' | 'direccionNegocio' | 'nombreComercial'
+  >('direccionNegocio');
+  const [nuevoValor, setNuevoValor] = useState('');
+  const [justificacion, setJustificacion] = useState('');
 
-  // Formulario Solicitud de Historia
   const [storyRequest, setStoryRequest] = useState({
     productId: MY_PRODUCTS[0].id,
     proposedStory: '',
@@ -47,17 +44,17 @@ export const SellerProfilePage = () => {
 
   // Obtener el valor actual dinámicamente según el campo seleccionado
   const getCurrentFieldValue = () => {
-    switch (fieldToUpdate) {
-      case 'businessAddress':
-        return profile.businessAddress;
-      case 'phone':
-        return profile.phone;
+    switch (campoAModificar) {
+      case 'direccionNegocio':
+        return profile.direccionNegocio;
+      case 'telefono':
+        return profile.telefono;
       case 'email':
         return profile.email;
-      case 'taxId':
-        return profile.taxId;
-      case 'tradeName':
-        return profile.tradeName || 'No registrado';
+      case 'identificacionFiscal':
+        return profile.identificacionFiscal;
+      case 'nombreComercial':
+        return profile.nombreComercial || 'No registrado';
       default:
         return '';
     }
@@ -66,26 +63,26 @@ export const SellerProfilePage = () => {
   // Enviar solicitud de cambio de datos
   const handleDataRequestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newValue.trim() || !reason.trim()) {
+    if (!nuevoValor.trim() || !justificacion.trim()) {
       alert('Por favor completa el nuevo valor y la justificación.');
       return;
     }
 
-    const payload: Partial<ProfileUpdateRequest> = {
-      sellerId: profile.id,
-      fieldToUpdate,
-      currentValue: getCurrentFieldValue(),
-      newValue,
-      reason,
-      status: 'PENDIENTE',
+    const payload: Partial<SolicitudActualizacionPerfil> = {
+      vendedorId: profile.id,
+      campoAModificar,
+      valorActual: getCurrentFieldValue(),
+      nuevoValor,
+      justificacion,
+      estado: 'PENDIENTE',
     };
 
     console.log('Solicitud enviada a NestJS:', payload);
     alert('Solicitud de cambio de datos enviada con éxito. El Administrador revisará tus cambios.');
     
     setIsDataModalOpen(false);
-    setNewValue('');
-    setReason('');
+    setNuevoValor('');
+    setJustificacion('');
   };
 
   // Enviar borrador de historia
@@ -118,15 +115,15 @@ export const SellerProfilePage = () => {
         <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-200 space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-gray-100 pb-5">
             <img
-              src={profile.photoUrl}
-              alt={profile.fullName}
+              src={profile.fotoUrl}
+              alt={profile.nombreCompleto}
               className="w-20 h-20 rounded-2xl object-cover border-2 border-teal-700/20 shadow-xs"
             />
             <div className="space-y-1">
-              <h2 className="text-xl font-bold text-gray-900">{profile.fullName}</h2>
-              {profile.tradeName && (
+              <h2 className="text-xl font-bold text-gray-900">{profile.nombreCompleto}</h2>
+              {profile.nombreComercial && (
                 <p className="text-xs font-semibold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-md inline-block border border-teal-200">
-                  {profile.tradeName}
+                  {profile.nombreComercial}
                 </p>
               )}
               <div>
@@ -161,7 +158,7 @@ export const SellerProfilePage = () => {
               <label className="font-semibold text-gray-700">Teléfono</label>
               <input
                 type="text"
-                value={profile.phone}
+                value={profile.telefono}
                 readOnly
                 className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed outline-none font-medium"
               />
@@ -171,7 +168,7 @@ export const SellerProfilePage = () => {
               <label className="font-semibold text-gray-700">RUC / Cédula (Facturación)</label>
               <input
                 type="text"
-                value={profile.taxId}
+                value={profile.identificacionFiscal}
                 readOnly
                 className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed outline-none font-mono font-medium"
               />
@@ -181,7 +178,7 @@ export const SellerProfilePage = () => {
               <label className="font-semibold text-gray-700">Punto Emisión SRI (Est. - Pt.Em)</label>
               <input
                 type="text"
-                value={`${profile.establishment} - ${profile.emissionPoint}`}
+                value={`${profile.establecimiento} - ${profile.puntoEmision}`}
                 readOnly
                 className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-teal-900 cursor-not-allowed outline-none font-mono font-bold"
               />
@@ -191,7 +188,7 @@ export const SellerProfilePage = () => {
               <label className="font-semibold text-gray-700">Dirección Fiscal del Negocio</label>
               <input
                 type="text"
-                value={profile.businessAddress}
+                value={profile.direccionNegocio}
                 readOnly
                 className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed outline-none font-medium"
               />
@@ -260,10 +257,10 @@ export const SellerProfilePage = () => {
               <div className="space-y-1">
                 <label className="font-semibold text-gray-800">Campo a Modificar</label>
                 <select
-                  value={fieldToUpdate}
+                  value={campoAModificar}
                   onChange={(e) =>
-                    setFieldToUpdate(
-                      e.target.value as 'businessAddress' | 'phone' | 'email' | 'taxId' | 'tradeName'
+                    setCampoAModificar(
+                      e.target.value as 'telefono' | 'email' | 'identificacionFiscal' | 'direccionNegocio' | 'nombreComercial'
                     )
                   }
                   className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none bg-white"
@@ -291,8 +288,8 @@ export const SellerProfilePage = () => {
                 <input
                   type="text"
                   required
-                  value={newValue}
-                  onChange={(e) => setNewValue(e.target.value)}
+                  value={nuevoValor}
+                  onChange={(e) => setNuevoValor(e.target.value)}
                   placeholder="Escribe el nuevo dato correcto..."
                   className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
                 />
@@ -303,8 +300,8 @@ export const SellerProfilePage = () => {
                 <textarea
                   rows={3}
                   required
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
+                  value={justificacion}
+                  onChange={(e) => setJustificacion(e.target.value)}
                   placeholder="Ej: Cambio de domicilio fiscal o renovación de número telefónico..."
                   className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none resize-none"
                 />

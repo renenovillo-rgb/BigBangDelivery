@@ -1,34 +1,36 @@
 import { useState } from 'react';
-import { OrderStatus, type Order } from '../../types/order';
+import type { Pedido, EstadoPedido } from '../../types';
 
-const INITIAL_ORDERS: Order[] = [
+const INITIAL_ORDERS: Pedido[] = [
   {
     id: 'ORD-001',
-    orderNumber: 'ORD-001',
-    storeId: 'store-1',
+    numeroPedido: 'ORD-001',
+    tiendaId: 'store-1',
     compradorId: 'user-1',
-    customerName: 'Juan Pérez',
-    customerTaxId: '0991234567001',
-    customerEmail: 'juan.perez@ejemplo.com',
-    customerAddress: 'Calle Larga y Benigno Malo',
-    customerPhone: '0991234567',
-    createdAt: '2026-10-26 10:30',
-    status: OrderStatus.PENDING,
+    nombreCliente: 'Juan Pérez',
+    identificacionCliente: '0991234567001',
+    emailCliente: 'juan.perez@ejemplo.com',
+    direccionEntrega: 'Calle Larga y Benigno Malo',
+    telefonoCliente: '0991234567',
+    fechaCreacion: '2026-10-26 10:30',
+    estadoPedido: 'PENDIENTE',
+    estadoPago: 'pendiente',
     subtotal: 30.87,
-    taxAmount: 4.63,
-    shippingFee: 0,
+    montoIva: 4.63,
+    costoEnvio: 0,
+    descuento: 0,
     total: 35.50,
-    paymentMethod: '01',
+    medioPago: '01',
     items: [
-      { id: '1', productId: 'p1', productName: 'Miel Artesanal 500g', quantity: 2, unitPrice: 10.00, subtotal: 20.00 },
-      { id: '2', productId: 'p2', productName: 'Queso Andino', quantity: 1, unitPrice: 15.50, subtotal: 15.50 },
+      { id: '1', productoId: 'p1', nombreProducto: 'Miel Artesanal 500g', cantidad: 2, precioUnitario: 10.00, subtotal: 20.00, unidadMedida: 'frasco' },
+      { id: '2', productoId: 'p2', nombreProducto: 'Queso Andino', cantidad: 1, precioUnitario: 15.50, subtotal: 15.50, unidadMedida: 'kg' },
     ],
   },
 ];
 
 export const SellerOrdersPage = () => {
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orders, setOrders] = useState<Pedido[]>(INITIAL_ORDERS);
+  const [selectedOrder, setSelectedOrder] = useState<Pedido | null>(null);
 
   // Estados para modales
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -36,7 +38,7 @@ export const SellerOrdersPage = () => {
   const [cancelReason, setCancelReason] = useState('');
 
   // Abrir modal de Factura al dar clic en Aceptar
-  const handleOpenInvoiceModal = (order: Order) => {
+  const handleOpenInvoiceModal = (order: Pedido) => {
     setSelectedOrder(order);
     setIsInvoiceModalOpen(true);
   };
@@ -48,7 +50,7 @@ export const SellerOrdersPage = () => {
     setOrders((prev) =>
       prev.map((ord) =>
         ord.id === selectedOrder.id
-          ? { ...ord, status: OrderStatus.CONFIRMED }
+          ? { ...ord, estadoPedido: 'CONFIRMADO' as EstadoPedido }
           : ord
       )
     );
@@ -59,7 +61,7 @@ export const SellerOrdersPage = () => {
   };
 
   // Abrir modal de Rechazo
-  const handleOpenCancelModal = (order: Order) => {
+  const handleOpenCancelModal = (order: Pedido) => {
     setSelectedOrder(order);
     setIsCancelModalOpen(true);
   };
@@ -74,7 +76,7 @@ export const SellerOrdersPage = () => {
     setOrders((prev) =>
       prev.map((ord) =>
         ord.id === selectedOrder?.id
-          ? { ...ord, status: OrderStatus.REJECTED, cancelReason }
+          ? { ...ord, estadoPedido: 'CANCELADO' as EstadoPedido, motivoCancelacion: cancelReason }
           : ord
       )
     );
@@ -112,26 +114,26 @@ export const SellerOrdersPage = () => {
               <tr key={order.id} className="hover:bg-stone-50/60 transition-colors">
                 <td className="p-4 font-mono font-medium text-teal-900">{order.id}</td>
                 <td className="p-4">
-                  <div className="font-medium text-gray-900">{order.customerName}</div>
-                  <div className="text-xs text-gray-500">{order.customerPhone}</div>
+                  <div className="font-medium text-gray-900">{order.nombreCliente}</div>
+                  <div className="text-xs text-gray-500">{order.telefonoCliente}</div>
                 </td>
-                <td className="p-4 text-gray-600">{order.createdAt}</td>
+                <td className="p-4 text-gray-600">{order.fechaCreacion}</td>
                 <td className="p-4 font-semibold text-gray-900">${order.total.toFixed(2)}</td>
                 <td className="p-4">
                   <span
                     className={`inline-block px-3 py-1 text-xs font-semibold rounded-full uppercase tracking-wider ${
-                      order.status === OrderStatus.PENDING
+                      order.estadoPedido === 'PENDIENTE'
                         ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                        : order.status === OrderStatus.CONFIRMED
+                        : order.estadoPedido === 'CONFIRMADO'
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                         : 'bg-rose-100 text-rose-800 border border-rose-200'
                     }`}
                   >
-                    {order.status}
+                    {order.estadoPedido}
                   </span>
                 </td>
                 <td className="p-4 text-center">
-                  {order.status === OrderStatus.PENDING ? (
+                  {order.estadoPedido === 'PENDIENTE' ? (
                     <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={() => handleOpenInvoiceModal(order)}
@@ -173,9 +175,10 @@ export const SellerOrdersPage = () => {
             <div className="space-y-4">
               <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200/80 text-xs space-y-1 text-gray-700">
                 <h4 className="font-bold text-teal-900 uppercase tracking-wider mb-1">Datos del Cliente</h4>
-                <p><strong className="text-gray-900">Nombre:</strong> {selectedOrder.customerName}</p>
-                <p><strong className="text-gray-900">Teléfono:</strong> {selectedOrder.customerPhone}</p>
-                <p><strong className="text-gray-900">Dirección:</strong> {selectedOrder.customerAddress}</p>
+                <p><strong className="text-gray-900">Nombre:</strong> {selectedOrder.nombreCliente}</p>
+                <p><strong className="text-gray-900">Identificación:</strong> {selectedOrder.identificacionCliente}</p>
+                <p><strong className="text-gray-900">Teléfono:</strong> {selectedOrder.telefonoCliente}</p>
+                <p><strong className="text-gray-900">Dirección:</strong> {selectedOrder.direccionEntrega}</p>
               </div>
 
               <div>
@@ -193,10 +196,10 @@ export const SellerOrdersPage = () => {
                     <tbody className="divide-y divide-gray-100">
                       {selectedOrder.items.map((item) => (
                         <tr key={item.id} className="text-gray-800">
-                          <td className="p-2.5">{item.productName}</td>
-                          <td className="p-2.5 text-center">{item.quantity}</td>
-                          <td className="p-2.5 text-right">${item.unitPrice.toFixed(2)}</td>
-                          <td className="p-2.5 text-right font-medium">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                          <td className="p-2.5">{item.nombreProducto}</td>
+                          <td className="p-2.5 text-center">{item.cantidad}</td>
+                          <td className="p-2.5 text-right">${item.precioUnitario.toFixed(2)}</td>
+                          <td className="p-2.5 text-right font-medium">${(item.cantidad * item.precioUnitario).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>

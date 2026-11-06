@@ -1,79 +1,74 @@
 import { useState } from 'react';
-import {
-  type Product,
-  ItemType,
-  ProductStatus,
-  type ServiceModalidad,
-} from '../../types/product';
+import type { Producto, TipoItem, EstadoProducto, ModalidadServicio } from '../../types';
 
-const INITIAL_PRODUCTS: Product[] = [
+const INITIAL_PRODUCTS: Producto[] = [
   {
     id: 'PROD-001',
-    storeId: 'store-1',
-    categoryId: 'cat-alimentos',
-    categoryName: 'Alimentos',
-    name: 'Miel Artesanal 500g',
-    description: 'Miel 100% natural de flores silvestres recolectada localmente.',
-    price: 10.00,
+    tiendaId: 'store-1',
+    categoriaId: 'cat-alimentos',
+    categoriaNombre: 'Alimentos',
+    nombre: 'Miel Artesanal 500g',
+    descripcion: 'Miel 100% natural de flores silvestres recolectada localmente.',
+    precio: 10.00,
     stock: 25,
-    unitMeasure: 'frasco',
-    type: ItemType.PERECIBLE,
-    status: ProductStatus.PUBLISHED,
-    expirationDate: '2027-12-31',
-    storageRequirements: 'Lugar fresco y seco',
-    imageUrl: 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?w=200&auto=format&fit=crop&q=80',
+    unidadMedida: 'frasco',
+    tipo: 'PERECIBLE',
+    estado: 'PUBLICADO',
+    fechaCaducidad: '2027-12-31',
+    condicionesAlmacenamiento: 'Lugar fresco y seco',
+    imagenUrl: 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?w=200&auto=format&fit=crop&q=80',
   },
   {
     id: 'PROD-002',
-    storeId: 'store-1',
-    categoryId: 'cat-lacteos',
-    categoryName: 'Lácteos',
-    name: 'Queso Andino Madurado',
-    description: 'Queso artesanal elaborado con leche fresca de granja.',
-    price: 15.50,
+    tiendaId: 'store-1',
+    categoriaId: 'cat-lacteos',
+    categoriaNombre: 'Lácteos',
+    nombre: 'Queso Andino Madurado',
+    descripcion: 'Queso artesanal elaborado con leche fresca de granja.',
+    precio: 15.50,
     stock: 8,
-    unitMeasure: 'kg',
-    type: ItemType.PERECIBLE,
-    status: ProductStatus.PUBLISHED,
-    expirationDate: '2026-11-15',
-    storageRequirements: 'Refrigerado a 4°C',
-    imageUrl: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&auto=format&fit=crop&q=80',
+    unidadMedida: 'kg',
+    tipo: 'PERECIBLE',
+    estado: 'PUBLICADO',
+    fechaCaducidad: '2026-11-15',
+    condicionesAlmacenamiento: 'Refrigerado a 4°C',
+    imagenUrl: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&auto=format&fit=crop&q=80',
   },
   {
     id: 'PROD-003',
-    storeId: 'store-1',
-    categoryId: 'cat-servicios',
-    categoryName: 'Servicios',
-    name: 'Asesoría en Huertos Urbanos',
-    description: 'Mantenimiento e instalación de cultivos orgánicos en casa.',
-    price: 25.00,
-    type: ItemType.SERVICIO,
-    status: ProductStatus.PENDING_APPROVAL,
-    serviceDuration: '2 Horas',
-    serviceModalidad: 'A_DOMICILIO',
-    dailyCapacity: 3,
-    imageUrl: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=200&auto=format&fit=crop&q=80',
+    tiendaId: 'store-1',
+    categoriaId: 'cat-servicios',
+    categoriaNombre: 'Servicios',
+    nombre: 'Asesoría en Huertos Urbanos',
+    descripcion: 'Mantenimiento e instalación de cultivos orgánicos en casa.',
+    precio: 25.00,
+    tipo: 'SERVICIO',
+    estado: 'PENDIENTE_REVISION',
+    duracionServicio: '2 Horas',
+    modalidadServicio: 'A_DOMICILIO',
+    cuposDiarios: 3,
+    imagenUrl: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=200&auto=format&fit=crop&q=80',
   },
 ];
 
 const EMPTY_PRODUCT_FORM = {
-  name: '',
-  description: '',
-  price: 0,
-  categoryName: 'General',
-  type: ItemType.NO_PERECIBLE as ItemType,
-  unitMeasure: 'unidad',
+  nombre: '',
+  descripcion: '',
+  precio: 0,
+  categoriaNombre: 'General',
+  tipo: 'NO_PERECIBLE' as TipoItem,
+  unidadMedida: 'unidad',
   stock: 0,
-  expirationDate: '',
-  storageRequirements: '',
-  serviceDuration: '',
-  serviceModalidad: 'PRESENCIAL' as ServiceModalidad,
-  dailyCapacity: 1,
-  imageUrl: '',
+  fechaCaducidad: '',
+  condicionesAlmacenamiento: '',
+  duracionServicio: '',
+  modalidadServicio: 'PRESENCIAL' as ModalidadServicio,
+  cuposDiarios: 1,
+  imagenUrl: '',
 };
 
 export const SellerProductsPage = () => {
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<Producto[]>(INITIAL_PRODUCTS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
@@ -87,22 +82,22 @@ export const SellerProductsPage = () => {
   };
 
   // Abrir modal en modo Edición
-  const handleOpenEditModal = (product: Product) => {
+  const handleOpenEditModal = (product: Producto) => {
     setEditingProductId(product.id);
     setFormData({
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      categoryName: product.categoryName || 'General',
-      type: product.type,
-      unitMeasure: product.unitMeasure || 'unidad',
+      nombre: product.nombre,
+      descripcion: product.descripcion,
+      precio: product.precio,
+      categoriaNombre: product.categoriaNombre || 'General',
+      tipo: product.tipo,
+      unidadMedida: product.unidadMedida || 'unidad',
       stock: product.stock ?? 0,
-      expirationDate: product.expirationDate ?? '',
-      storageRequirements: product.storageRequirements ?? '',
-      serviceDuration: product.serviceDuration ?? '',
-      serviceModalidad: product.serviceModalidad ?? 'PRESENCIAL',
-      dailyCapacity: product.dailyCapacity ?? 1,
-      imageUrl: product.imageUrl,
+      fechaCaducidad: product.fechaCaducidad ?? '',
+      condicionesAlmacenamiento: product.condicionesAlmacenamiento ?? '',
+      duracionServicio: product.duracionServicio ?? '',
+      modalidadServicio: product.modalidadServicio ?? 'PRESENCIAL',
+      cuposDiarios: product.cuposDiarios ?? 1,
+      imagenUrl: product.imagenUrl,
     });
     setIsModalOpen(true);
   };
@@ -117,7 +112,7 @@ export const SellerProductsPage = () => {
   // Guardar (Crear o Editar)
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || formData.price <= 0) {
+    if (!formData.nombre.trim() || formData.precio <= 0) {
       alert('Por favor ingresa un nombre y un precio válido.');
       return;
     }
@@ -130,20 +125,20 @@ export const SellerProductsPage = () => {
             ? {
                 ...p,
                 ...formData,
-                status: ProductStatus.PENDING_APPROVAL, // Al editar, requiere revisión de nuevo
+                estado: 'PENDIENTE_REVISION' as EstadoProducto, // Al editar, requiere revisión de nuevo
               }
             : p
         )
       );
     } else {
       // Crear nuevo
-      const newProductItem: Product = {
+      const newProductItem: Producto = {
         id: `PROD-${Date.now()}`,
-        storeId: 'store-1',
-        categoryId: 'cat-general',
+        tiendaId: 'store-1',
+        categoriaId: 'cat-general',
         ...formData,
-        status: ProductStatus.PENDING_APPROVAL,
-        imageUrl: formData.imageUrl || 'https://via.placeholder.com/150',
+        estado: 'PENDIENTE_REVISION' as EstadoProducto,
+        imagenUrl: formData.imagenUrl || 'https://via.placeholder.com/150',
       };
       setProducts((prev) => [newProductItem, ...prev]);
     }
@@ -189,54 +184,54 @@ export const SellerProductsPage = () => {
               <tr key={prod.id} className="hover:bg-stone-50/60 transition-colors">
                 <td className="p-4">
                   <img
-                    src={prod.imageUrl}
-                    alt={prod.name}
+                    src={prod.imagenUrl}
+                    alt={prod.nombre}
                     className="w-12 h-12 rounded-lg object-cover border border-gray-200 shadow-xs"
                   />
                 </td>
                 <td className="p-4 max-w-xs">
-                  <div className="font-semibold text-gray-900">{prod.name}</div>
-                  <div className="text-xs text-gray-500 line-clamp-1">{prod.description}</div>
+                  <div className="font-semibold text-gray-900">{prod.nombre}</div>
+                  <div className="text-xs text-gray-500 line-clamp-1">{prod.descripcion}</div>
                   <span className="inline-block mt-1 text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md font-medium border border-stone-200">
-                    {prod.categoryName || 'General'}
+                    {prod.categoriaNombre || 'General'}
                   </span>
                 </td>
                 <td className="p-4">
                   <span
                     className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-md border ${
-                      prod.type === ItemType.PERECIBLE
+                      prod.tipo === 'PERECIBLE'
                         ? 'bg-amber-50 text-amber-900 border-amber-200'
-                        : prod.type === ItemType.SERVICIO
+                        : prod.tipo === 'SERVICIO'
                         ? 'bg-sky-50 text-sky-900 border-sky-200'
                         : 'bg-emerald-50 text-emerald-900 border-emerald-200'
                     }`}
                   >
-                    {prod.type}
+                    {prod.tipo}
                   </span>
                 </td>
                 <td className="p-4">
                   <span
                     className={`inline-block px-2.5 py-0.5 text-[11px] font-medium rounded-full ${
-                      prod.status === ProductStatus.PUBLISHED
+                      prod.estado === 'PUBLICADO'
                         ? 'bg-emerald-100 text-emerald-800'
-                        : prod.status === ProductStatus.PENDING_APPROVAL
+                        : prod.estado === 'PENDIENTE_REVISION'
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-rose-100 text-rose-800'
                     }`}
                   >
-                    {prod.status}
+                    {prod.estado}
                   </span>
                 </td>
                 <td className="p-4 font-semibold text-gray-900">
-                  ${prod.price.toFixed(2)}
-                  {prod.unitMeasure && (
-                    <span className="text-xs font-normal text-gray-500"> / {prod.unitMeasure}</span>
+                  ${prod.precio.toFixed(2)}
+                  {prod.unidadMedida && (
+                    <span className="text-xs font-normal text-gray-500"> / {prod.unidadMedida}</span>
                   )}
                 </td>
                 <td className="p-4 text-center">
-                  {prod.type === ItemType.SERVICIO ? (
+                  {prod.tipo === 'SERVICIO' ? (
                     <span className="inline-block px-2.5 py-1 text-xs bg-stone-100 text-stone-700 font-medium rounded-lg border border-stone-200">
-                      {prod.dailyCapacity} cupos/día
+                      {prod.cuposDiarios} cupos/día
                     </span>
                   ) : (
                     <span
@@ -246,7 +241,7 @@ export const SellerProductsPage = () => {
                           : 'bg-rose-50 text-rose-700 border border-rose-200'
                       }`}
                     >
-                      {prod.stock} {prod.unitMeasure || 'u.'}
+                      {prod.stock} {prod.unidadMedida || 'u.'}
                     </span>
                   )}
                 </td>
@@ -259,7 +254,7 @@ export const SellerProductsPage = () => {
                       Editar
                     </button>
                     <button
-                      onClick={() => handleDeleteProduct(prod.id, prod.name)}
+                      onClick={() => handleDeleteProduct(prod.id, prod.nombre)}
                       className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium rounded-lg text-xs transition-colors border border-rose-200"
                     >
                       Eliminar
@@ -292,7 +287,7 @@ export const SellerProductsPage = () => {
                 <div className="grid grid-cols-3 gap-2">
                   <label
                     className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer font-medium transition-all ${
-                      formData.type === ItemType.PERECIBLE
+                      formData.tipo === 'PERECIBLE'
                         ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs'
                         : 'border-gray-200 bg-stone-50 text-gray-600 hover:bg-stone-100'
                     }`}
@@ -300,9 +295,9 @@ export const SellerProductsPage = () => {
                     <input
                       type="radio"
                       name="itemType"
-                      value={ItemType.PERECIBLE}
-                      checked={formData.type === ItemType.PERECIBLE}
-                      onChange={() => setFormData({ ...formData, type: ItemType.PERECIBLE })}
+                      value="PERECIBLE"
+                      checked={formData.tipo === 'PERECIBLE'}
+                      onChange={() => setFormData({ ...formData, tipo: 'PERECIBLE' })}
                       className="hidden"
                     />
                     Perecible
@@ -310,7 +305,7 @@ export const SellerProductsPage = () => {
 
                   <label
                     className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer font-medium transition-all ${
-                      formData.type === ItemType.NO_PERECIBLE
+                      formData.tipo === 'NO_PERECIBLE'
                         ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-xs'
                         : 'border-gray-200 bg-stone-50 text-gray-600 hover:bg-stone-100'
                     }`}
@@ -318,9 +313,9 @@ export const SellerProductsPage = () => {
                     <input
                       type="radio"
                       name="itemType"
-                      value={ItemType.NO_PERECIBLE}
-                      checked={formData.type === ItemType.NO_PERECIBLE}
-                      onChange={() => setFormData({ ...formData, type: ItemType.NO_PERECIBLE })}
+                      value="NO_PERECIBLE"
+                      checked={formData.tipo === 'NO_PERECIBLE'}
+                      onChange={() => setFormData({ ...formData, tipo: 'NO_PERECIBLE' })}
                       className="hidden"
                     />
                     No Perecible
@@ -328,7 +323,7 @@ export const SellerProductsPage = () => {
 
                   <label
                     className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer font-medium transition-all ${
-                      formData.type === ItemType.SERVICIO
+                      formData.tipo === 'SERVICIO'
                         ? 'border-sky-500 bg-sky-50 text-sky-900 shadow-xs'
                         : 'border-gray-200 bg-stone-50 text-gray-600 hover:bg-stone-100'
                     }`}
@@ -336,9 +331,9 @@ export const SellerProductsPage = () => {
                     <input
                       type="radio"
                       name="itemType"
-                      value={ItemType.SERVICIO}
-                      checked={formData.type === ItemType.SERVICIO}
-                      onChange={() => setFormData({ ...formData, type: ItemType.SERVICIO })}
+                      value={"SERVICIO"}
+                      checked={formData.tipo === 'SERVICIO'}
+                      onChange={() => setFormData({ ...formData, tipo: 'SERVICIO' })}
                       className="hidden"
                     />
                     Servicio
@@ -352,8 +347,8 @@ export const SellerProductsPage = () => {
                 <input
                   type="text"
                   required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   placeholder="Ej: Miel de Abeja 500g o Servicio de Corte"
                   className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
                 />
@@ -364,8 +359,8 @@ export const SellerProductsPage = () => {
                 <label className="font-semibold text-gray-800">Descripción</label>
                 <textarea
                   rows={2}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  value={formData.descripcion}
+                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                   placeholder="Detalles del producto o servicio..."
                   className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none resize-none"
                 />
@@ -380,9 +375,9 @@ export const SellerProductsPage = () => {
                     step="0.01"
                     min="0.01"
                     required
-                    value={formData.price || ''}
+                    value={formData.precio || ''}
                     onChange={(e) =>
-                      setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })
+                      setFormData({ ...formData, precio: parseFloat(e.target.value) || 0 })
                     }
                     className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
                   />
@@ -392,20 +387,20 @@ export const SellerProductsPage = () => {
                   <label className="font-semibold text-gray-800">Categoría</label>
                   <input
                     type="text"
-                    value={formData.categoryName}
-                    onChange={(e) => setFormData({ ...formData, categoryName: e.target.value })}
+                    value={formData.categoriaNombre}
+                    onChange={(e) => setFormData({ ...formData, categoriaNombre: e.target.value })}
                     placeholder="Ej: Lácteos, Mantenimiento..."
                     className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
                   />
                 </div>
 
-                {formData.type !== ItemType.SERVICIO && (
+                {formData.tipo !== 'SERVICIO' && (
                   <div className="space-y-1">
                     <label className="font-semibold text-gray-800">Unidad de Medida</label>
                     <input
                       type="text"
-                      value={formData.unitMeasure}
-                      onChange={(e) => setFormData({ ...formData, unitMeasure: e.target.value })}
+                      value={formData.unidadMedida}
+                      onChange={(e) => setFormData({ ...formData, unidadMedida: e.target.value })}
                       placeholder="Ej: kg, libra, frasco, unidad"
                       className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
                     />
@@ -414,7 +409,7 @@ export const SellerProductsPage = () => {
               </div>
 
               {/* Campos Dinámicos según el Tipo */}
-              {formData.type === ItemType.PERECIBLE && (
+              {formData.tipo === 'PERECIBLE' && (
                 <div className="bg-amber-50/60 p-4 rounded-xl border border-amber-200/80 space-y-3">
                   <p className="font-bold text-amber-900 uppercase tracking-wider text-[11px]">
                     Detalles de Producto Perecible
@@ -436,8 +431,8 @@ export const SellerProductsPage = () => {
                       <label className="font-semibold text-gray-800">Fecha de Caducidad</label>
                       <input
                         type="date"
-                        value={formData.expirationDate}
-                        onChange={(e) => setFormData({ ...formData, expirationDate: e.target.value })}
+                        value={formData.fechaCaducidad}
+                        onChange={(e) => setFormData({ ...formData, fechaCaducidad: e.target.value })}
                         className="w-full p-2.5 bg-white border border-amber-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-600 outline-none"
                       />
                     </div>
@@ -446,8 +441,8 @@ export const SellerProductsPage = () => {
                     <label className="font-semibold text-gray-800">Requisitos de Conservación</label>
                     <input
                       type="text"
-                      value={formData.storageRequirements}
-                      onChange={(e) => setFormData({ ...formData, storageRequirements: e.target.value })}
+                      value={formData.condicionesAlmacenamiento}
+                      onChange={(e) => setFormData({ ...formData, condicionesAlmacenamiento: e.target.value })}
                       placeholder="Ej: Refrigerado a 4°C, Mantener alejado del sol..."
                       className="w-full p-2.5 bg-white border border-amber-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-600 outline-none"
                     />
@@ -455,7 +450,7 @@ export const SellerProductsPage = () => {
                 </div>
               )}
 
-              {formData.type === ItemType.NO_PERECIBLE && (
+              {formData.tipo === 'NO_PERECIBLE' && (
                 <div className="bg-emerald-50/60 p-4 rounded-xl border border-emerald-200/80 space-y-3">
                   <p className="font-bold text-emerald-900 uppercase tracking-wider text-[11px]">
                     Detalles de Producto No Perecible
@@ -475,7 +470,7 @@ export const SellerProductsPage = () => {
                 </div>
               )}
 
-              {formData.type === ItemType.SERVICIO && (
+              {formData.tipo === 'SERVICIO' && (
                 <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200/80 space-y-3">
                   <p className="font-bold text-sky-900 uppercase tracking-wider text-[11px]">
                     Detalles del Servicio
@@ -485,8 +480,8 @@ export const SellerProductsPage = () => {
                       <label className="font-semibold text-gray-800">Duración Estimada</label>
                       <input
                         type="text"
-                        value={formData.serviceDuration}
-                        onChange={(e) => setFormData({ ...formData, serviceDuration: e.target.value })}
+                        value={formData.duracionServicio}
+                        onChange={(e) => setFormData({ ...formData, duracionServicio: e.target.value })}
                         placeholder="Ej: 1 Hora, 45 min"
                         className="w-full p-2.5 bg-white border border-sky-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 outline-none"
                       />
@@ -494,11 +489,11 @@ export const SellerProductsPage = () => {
                     <div className="space-y-1">
                       <label className="font-semibold text-gray-800">Modalidad</label>
                       <select
-                        value={formData.serviceModalidad}
+                        value={formData.modalidadServicio}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            serviceModalidad: e.target.value as ServiceModalidad,
+                            modalidadServicio: e.target.value as ModalidadServicio,
                           })
                         }
                         className="w-full p-2.5 bg-white border border-sky-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 outline-none"
@@ -513,11 +508,11 @@ export const SellerProductsPage = () => {
                       <input
                         type="number"
                         min="1"
-                        value={formData.dailyCapacity || ''}
+                        value={formData.cuposDiarios || ''}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            dailyCapacity: parseInt(e.target.value, 10) || 1,
+                            cuposDiarios: parseInt(e.target.value, 10) || 1,
                           })
                         }
                         className="w-full p-2.5 bg-white border border-sky-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 outline-none"
@@ -532,8 +527,8 @@ export const SellerProductsPage = () => {
                 <label className="font-semibold text-gray-800">URL de la Imagen</label>
                 <input
                   type="url"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                  value={formData.imagenUrl}
+                  onChange={(e) => setFormData({ ...formData, imagenUrl: e.target.value })}
                   placeholder="https://ejemplo.com/imagen.jpg"
                   className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
                 />
