@@ -1,14 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { ButtonHTMLAttributes, ChangeEvent, Dispatch, ReactNode, SetStateAction } from 'react';
 import {
   Leaf, MapPin, Search, ChevronDown, Plus, Minus, ShoppingBasket, CreditCard, Landmark,
   Banknote, CheckCircle2, BadgeCheck, ArrowLeft, ArrowRight, Sprout, Truck, Tag, X,
-  LayoutGrid, Home, UserRound, Receipt, Droplets, Heart, Star, Carrot, Apple, Egg, Wheat,
-  Cherry, Salad, Lock, Phone, FileText, Recycle, Sparkles, ShieldCheck, Clock, Loader2,
-  Package, Store,
+  LayoutGrid, Home, UserRound, Receipt, Droplets, Heart, Star,
+  Salad, Lock, Phone, FileText, Recycle, Sparkles, ShieldCheck, Clock, Loader2,
+  Package, Store, Menu, Wrench, Settings, LogOut, ChevronRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import logoHorizonte from './assets/logoHorizonte.jpg';
+import {
+  MOCK_ORDERS, PRODUCT_CATEGORIES, PRODUCTS, SERVICE_CATEGORIES, SERVICES,
+} from './catalog';
+import type { Category, Order, OrderStatus, Product, Service } from './catalog';
 
 /* ------------------------------------------------------------------ */
 /*  Paleta: crema #F7F3E8 · verde musgo #4F6F52 · salvia #86A789        */
@@ -20,11 +24,6 @@ type ScreenId = 'welcome' | 'login' | 'home' | 'detail' | 'cart' | 'payment';
 type Go = (id: ScreenId) => void;
 type Setter<T> = Dispatch<SetStateAction<T>>;
 
-interface ProductOption { label: string; price: number }
-interface Product {
-  id: string; name: string; short: string; icon: LucideIcon; own: boolean; rating: number;
-  tone: string; iconColor: string; origin: string; options: ProductOption[];
-}
 interface BillingForm { cedula: string; nombre: string; telefono: string; direccion: string }
 interface Billing extends BillingForm { docType: string }
 interface Selection { qty: number; optionIdx: number; notes: string }
@@ -37,45 +36,6 @@ const SCREENS: { id: ScreenId; label: string; icon: LucideIcon }[] = [
   { id: 'detail', label: 'Detalle de producto', icon: Salad },
   { id: 'cart', label: 'Carrito', icon: ShoppingBasket },
   { id: 'payment', label: 'Pago y recibo', icon: CreditCard },
-];
-
-const PRODUCTS: Product[] = [
-  {
-    id: 'lechuga', name: 'Lechuga crespa hidropónica', short: 'Lechugas', icon: Salad, own: true, rating: 4.9,
-    tone: 'from-[#DCE8D2] to-[#B9D1AE]', iconColor: 'text-[#4F6F52]',
-    origin: 'Cultivada en nuestros invernaderos hidropónicos de Horizonte Sostenible, con agua recirculada, sin pesticidas y cosechada el mismo día de tu pedido.',
-    options: [{ label: 'Atado 250 g', price: 1.5 }, { label: 'Malla 500 g', price: 2.6 }, { label: 'Caja 1 kg', price: 4.8 }],
-  },
-  {
-    id: 'zanahoria', name: 'Zanahoria orgánica', short: 'Zanahorias', icon: Carrot, own: false, rating: 4.7,
-    tone: 'from-[#F3E3C7] to-[#E8C896]', iconColor: 'text-[#B7792B]',
-    origin: 'Producida por pequeños agricultores aliados de la sierra, con rotación de cultivos y abonos naturales.',
-    options: [{ label: 'Funda 500 g', price: 1.2 }, { label: 'Funda 1 kg', price: 2.1 }],
-  },
-  {
-    id: 'manzana', name: 'Manzana verde de altura', short: 'Manzanas', icon: Apple, own: false, rating: 4.6,
-    tone: 'from-[#E4EDCB] to-[#C9DB9F]', iconColor: 'text-[#6C8B3A]',
-    origin: 'Frutal de altura con riego tecnificado y control biológico de plagas.',
-    options: [{ label: 'Malla 1 kg', price: 2.9 }, { label: 'Caja 3 kg', price: 7.9 }],
-  },
-  {
-    id: 'huevos', name: 'Huevos de campo', short: 'Huevos', icon: Egg, own: true, rating: 4.9,
-    tone: 'from-[#F6EBD6] to-[#EAD6AE]', iconColor: 'text-[#A9803F]',
-    origin: 'Gallinas criadas en libre pastoreo dentro de la granja Horizonte Sostenible, alimentadas con granos propios.',
-    options: [{ label: 'Media docena', price: 2.2 }, { label: 'Docena', price: 4.1 }],
-  },
-  {
-    id: 'quinua', name: 'Quinua en grano', short: 'Quinua', icon: Wheat, own: false, rating: 4.8,
-    tone: 'from-[#EFE6CF] to-[#DCCB9E]', iconColor: 'text-[#8C7435]',
-    origin: 'Grano andino lavado y seleccionado, cultivado sin agroquímicos por cooperativas locales.',
-    options: [{ label: 'Bolsa 500 g', price: 3.2 }, { label: 'Bolsa 1 kg', price: 5.9 }],
-  },
-  {
-    id: 'mora', name: 'Mora de castilla', short: 'Moras', icon: Cherry, own: true, rating: 4.8,
-    tone: 'from-[#EBD9DF] to-[#D8B4C0]', iconColor: 'text-[#8A4A5F]',
-    origin: 'Cosechada a mano en nuestros lotes agroecológicos y entregada en cadena de frío.',
-    options: [{ label: 'Tarrina 250 g', price: 2.4 }, { label: 'Tarrina 500 g', price: 4.3 }],
-  },
 ];
 
 const money = (n: number) => `$${n.toFixed(2)}`;
@@ -413,118 +373,601 @@ const ProductCard = ({ p, onOpen }: { p: Product; onOpen: (id: string) => void }
   );
 };
 
-const HomeScreen = ({ go, openProduct, form, itemCount }: { go: Go; openProduct: (id: string) => void; form: BillingForm; itemCount: number }) => {
-  const [query, setQuery] = useState('');
-  const [cat, setCat] = useState('Todo');
-  const cats = ['Todo', 'Producción propia', 'Verduras', 'Frutas'];
+type Section = 'productos' | 'servicios' | 'pedidos' | 'cuenta' | 'ajustes';
 
-  const list = PRODUCTS.filter((p) => {
-    const matches = p.name.toLowerCase().includes(query.toLowerCase());
-    if (cat === 'Producción propia') return matches && p.own;
-    if (cat === 'Verduras') return matches && ['lechuga', 'zanahoria'].includes(p.id);
-    if (cat === 'Frutas') return matches && ['manzana', 'mora'].includes(p.id);
-    return matches;
-  });
+const NAV_GROUPS: { title: string; items: { id: Section; label: string; icon: LucideIcon }[] }[] = [
+  {
+    title: 'Explorar',
+    items: [
+      { id: 'productos', label: 'Productos', icon: Package },
+      { id: 'servicios', label: 'Servicios', icon: Wrench },
+    ],
+  },
+  { title: 'Mi actividad', items: [{ id: 'pedidos', label: 'Pedidos realizados', icon: Receipt }] },
+  {
+    title: 'Cuenta',
+    items: [
+      { id: 'cuenta', label: 'Mi cuenta', icon: UserRound },
+      { id: 'ajustes', label: 'Ajustes', icon: Settings },
+    ],
+  },
+];
+
+const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+
+/* Barra lateral desplegable: drawer en móvil/tablet, columna fija en escritorio */
+const Sidebar = ({ open, section, name, onSelect, onClose, onLogout }: {
+  open: boolean; section: Section; name: string;
+  onSelect: (s: Section) => void; onClose: () => void; onLogout: () => void;
+}) => (
+  <>
+    {open && <div onClick={onClose} aria-hidden="true" className="fixed inset-0 z-30 bg-[#2F3A2F]/45 backdrop-blur-[2px] lg:hidden" />}
+    <aside
+      inert={!open}
+      aria-label="Menú principal"
+      className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col bg-white shadow-2xl transition-transform duration-300 lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:max-w-none lg:shrink-0 lg:self-start lg:shadow-none lg:ring-1 lg:ring-black/5 ${open ? 'translate-x-0' : '-translate-x-full lg:hidden'}`}
+    >
+      <div className="flex items-center justify-between px-5 pb-3 pt-5">
+        <BrandInline />
+        <button
+          onClick={onClose}
+          aria-label="Cerrar menú"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F3E8] text-[#2F3A2F] transition active:scale-90"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="mx-4 mb-2 flex items-center gap-3 rounded-2xl bg-[#F7F3E8] p-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#4F6F52] text-base font-bold text-[#F7F3E8]">
+          {name.charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-[#2F3A2F]">{name}</p>
+          <p className="text-xs text-[#6B7A6B]">Comprador</p>
+        </div>
+      </div>
+
+      <nav className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
+        {NAV_GROUPS.map((g) => (
+          <div key={g.title}>
+            <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#6B7A6B]">{g.title}</p>
+            {g.items.map((item) => {
+              const Icon = item.icon;
+              const active = section === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onSelect(item.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-semibold transition ${active ? 'bg-[#4F6F52] text-[#F7F3E8]' : 'text-[#2F3A2F] hover:bg-[#DCE8D2]/60'}`}
+                >
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${active ? 'bg-white/20' : 'bg-[#DCE8D2] text-[#4F6F52]'}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+
+      <div className="border-t border-[#2F3A2F]/10 p-4">
+        <button
+          onClick={onLogout}
+          className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-semibold text-[#B4533C] transition hover:bg-[#F2D9D0]/50"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F2D9D0]"><LogOut className="h-4 w-4" /></span>
+          Cerrar sesión
+        </button>
+      </div>
+    </aside>
+  </>
+);
+
+/* Barra categorizadora: categorías arriba, subcategorías de la categoría elegida debajo */
+const CategoryBar = ({ categories, catId, subId, allLabel, onCat, onSub }: {
+  categories: Category[]; catId: string; subId: string; allLabel: string;
+  onCat: (id: string) => void; onSub: (id: string) => void;
+}) => {
+  const current = categories.find((c) => c.id === catId);
+  const chip = (active: boolean) =>
+    `flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${active ? 'bg-[#2F3A2F] text-[#F7F3E8]' : 'bg-white text-[#2F3A2F]/70 ring-1 ring-black/5 hover:bg-[#DCE8D2]/50'}`;
+  const subChip = (active: boolean) =>
+    `shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition ${active ? 'bg-[#4F6F52] text-[#F7F3E8]' : 'bg-[#DCE8D2]/60 text-[#3E5C41] hover:bg-[#DCE8D2]'}`;
 
   return (
-    <div className="min-h-screen bg-[#F7F3E8] pb-28">
-      <header className="sticky top-0 z-20 bg-[#4F6F52] shadow-md shadow-[#4F6F52]/20">
-        <Container className="flex flex-wrap items-center gap-x-4 gap-y-3 py-3 md:flex-nowrap md:py-4">
-          <div className="hidden md:block"><BrandInline onDark /></div>
+    <nav aria-label="Categorías" className="mt-5">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0">
+        <button onClick={() => onCat('')} aria-pressed={!catId} className={chip(!catId)}>
+          <LayoutGrid className="h-4 w-4" /> {allLabel}
+        </button>
+        {categories.map((c) => {
+          const Icon = c.icon;
+          return (
+            <button key={c.id} onClick={() => onCat(c.id)} aria-pressed={catId === c.id} className={chip(catId === c.id)}>
+              <Icon className="h-4 w-4" /> {c.label}
+            </button>
+          );
+        })}
+      </div>
 
-          <button className="flex items-center gap-2 text-left md:order-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F3E8]/15">
-              <MapPin className="h-5 w-5 text-[#F7F3E8]" />
-            </span>
-            <span>
-              <span className="block text-[10px] font-medium uppercase tracking-wider text-[#DCE8D2]">Entregar en</span>
-              <span className="flex items-center gap-1 text-sm font-bold text-[#F7F3E8]">
-                {form.direccion ? form.direccion.slice(0, 22) : 'Quito, Ecuador'}
-                <ChevronDown className="h-4 w-4" />
-              </span>
-            </span>
-          </button>
-
-          <div className="order-last flex w-full items-center gap-3 rounded-2xl bg-[#F7F3E8] px-4 py-3 md:order-1 md:w-auto md:flex-1">
-            <Search className="h-5 w-5 shrink-0 text-[#86A789]" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Busca lechugas, huevos, frutas…"
-              className="w-full min-w-0 bg-transparent text-[15px] text-[#2F3A2F] outline-none placeholder:text-[#2F3A2F]/40"
-            />
-            {query && (
-              <button onClick={() => setQuery('')} aria-label="Limpiar búsqueda">
-                <X className="h-4 w-4 text-[#2F3A2F]/50" />
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={() => go('cart')}
-            aria-label="Ir al carrito"
-            className="relative ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#F7F3E8]/15 md:order-3 md:ml-0"
-          >
-            <ShoppingBasket className="h-5 w-5 text-[#F7F3E8]" />
-            {itemCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#F7F3E8] px-1 text-[11px] font-bold text-[#4F6F52]">
-                {itemCount}
-              </span>
-            )}
-          </button>
-        </Container>
-      </header>
-
-      <Container className="pt-5 sm:pt-8">
-        {/* Banner promocional */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#DCE8D2] to-[#C4D9B8] p-5 sm:p-8 lg:p-12">
-          <div className="relative z-10 max-w-[62%] sm:max-w-md lg:max-w-lg">
-            <span className="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#4F6F52] sm:text-xs">
-              Cosecha de hoy
-            </span>
-            <h2 className="mt-3 text-xl font-extrabold leading-tight text-[#2F3A2F] sm:text-3xl lg:text-4xl">
-              10% en tu primer pedido sostenible
-            </h2>
-            <p className="mt-1.5 text-xs text-[#2F3A2F]/65 sm:text-base">
-              Usa el cupón <b className="text-[#4F6F52]">HORIZONTE10</b>
-            </p>
-          </div>
-          <Salad className="absolute -bottom-3 -right-2 h-32 w-32 rotate-6 text-[#4F6F52]/25 sm:-right-4 sm:h-52 sm:w-52 lg:right-10 lg:h-72 lg:w-72" strokeWidth={1.2} />
-          <Leaf className="absolute right-6 top-4 h-7 w-7 -rotate-12 text-[#4F6F52]/40 sm:right-20 sm:h-10 sm:w-10" />
-        </div>
-
-        {/* Categorías */}
-        <div className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0">
-          {cats.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${cat === c ? 'bg-[#2F3A2F] text-[#F7F3E8]' : 'bg-white text-[#2F3A2F]/70 ring-1 ring-black/5 hover:bg-[#DCE8D2]/50'}`}
-            >
-              {c}
+      {current && (
+        <div className="-mx-4 mt-2.5 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:rounded-2xl sm:bg-white/60 sm:p-2.5">
+          <ChevronRight className="h-4 w-4 shrink-0 text-[#86A789]" />
+          <button onClick={() => onSub('')} aria-pressed={!subId} className={subChip(!subId)}>Todas</button>
+          {current.subs.map((s) => (
+            <button key={s.id} onClick={() => onSub(s.id)} aria-pressed={subId === s.id} className={subChip(subId === s.id)}>
+              {s.label}
             </button>
           ))}
         </div>
+      )}
+    </nav>
+  );
+};
 
-        <div className="mb-4 mt-6">
-          <h2 className="text-lg font-extrabold text-[#2F3A2F] sm:text-2xl">Destacados sostenibles</h2>
-          <p className="text-xs text-[#2F3A2F]/55 sm:text-sm">Producción propia y agricultores aliados</p>
+const ServiceCard = ({ s, onRequest }: { s: Service; onRequest: (s: Service) => void }) => {
+  const Icon = s.icon;
+  return (
+    <article className="flex flex-col overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className={`relative flex h-28 items-center justify-center bg-gradient-to-br sm:h-32 ${s.tone}`}>
+        <Icon className={`h-12 w-12 sm:h-14 sm:w-14 ${s.iconColor}`} strokeWidth={1.4} />
+        <span className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-[#4F6F52] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#F7F3E8]">
+          <BadgeCheck className="h-3.5 w-3.5" /> Aprobado
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-snug text-[#2F3A2F] sm:text-[15px]">{s.title}</h3>
+        <p className="mt-0.5 text-xs font-medium text-[#4F6F52]">{s.provider}</p>
+        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#2F3A2F]/60">{s.description}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#2F3A2F]/60">
+          <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-[#D9A441] text-[#D9A441]" /> {s.rating.toFixed(1)} · {s.jobs} trabajos</span>
+          <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-[#86A789]" /> {s.zone}</span>
         </div>
+        <div className="mt-auto flex items-center justify-between gap-3 pt-4">
+          <span className="text-base font-extrabold text-[#4F6F52]">
+            {money(s.price)}<span className="text-[11px] font-medium text-[#2F3A2F]/45"> / {s.unit}</span>
+          </span>
+          <button
+            onClick={() => onRequest(s)}
+            className="rounded-xl bg-[#4F6F52] px-4 py-2 text-sm font-semibold text-[#F7F3E8] transition active:scale-95 hover:bg-[#435E46]"
+          >
+            Solicitar
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+};
 
-        {list.length ? (
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-6">
-            {list.map((p) => <ProductCard key={p.id} p={p} onOpen={openProduct} />)}
+const ServiceRequestModal = ({ service, onClose }: { service: Service; onClose: () => void }) => {
+  const [when, setWhen] = useState('Hoy');
+  const [notes, setNotes] = useState('');
+  const [sent, setSent] = useState(false);
+  const Icon = service.icon;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Solicitar ${service.title}`}
+      onClick={onClose}
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-[#2F3A2F]/55 backdrop-blur-sm sm:items-center sm:p-4"
+    >
+      <div onClick={(e) => e.stopPropagation()} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-[#F7F3E8] p-5 shadow-2xl sm:rounded-[2rem] sm:p-8">
+        {sent ? (
+          <div className="flex flex-col items-center text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#4F6F52]">
+              <CheckCircle2 className="h-9 w-9 text-[#F7F3E8]" />
+            </div>
+            <h2 className="mt-4 text-2xl font-extrabold text-[#2F3A2F]">Solicitud enviada</h2>
+            <p className="mt-2 text-sm text-[#2F3A2F]/65">
+              {service.provider} se pondrá en contacto contigo para confirmar el horario y el precio final.
+            </p>
+            <PrimaryButton className="mt-6" onClick={onClose}>Listo</PrimaryButton>
           </div>
         ) : (
-          <div className="rounded-3xl bg-white p-8 text-center text-sm text-[#2F3A2F]/55">
-            No encontramos resultados para “{query}”.
-          </div>
-        )}
-      </Container>
+          <>
+            <div className="flex items-start gap-4">
+              <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${service.tone}`}>
+                <Icon className={`h-8 w-8 ${service.iconColor}`} strokeWidth={1.5} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-extrabold leading-snug text-[#2F3A2F]">{service.title}</h2>
+                <p className="text-sm font-medium text-[#4F6F52]">{service.provider}</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-[#2F3A2F]/60"><BadgeCheck className="h-4 w-4 text-[#4F6F52]" /> Aprobado por la administración</p>
+              </div>
+              <button onClick={onClose} aria-label="Cerrar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#2F3A2F] ring-1 ring-black/5">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-      <footer className="mt-12 border-t border-[#2F3A2F]/10 py-6 text-center text-xs text-[#2F3A2F]/50">
-        © Horizonte Sostenible · Agricultura sostenible · Ecuador
-      </footer>
+            <p className="mt-4 text-sm leading-relaxed text-[#2F3A2F]/70">{service.description}</p>
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm ring-1 ring-black/5">
+              <span className="text-[#2F3A2F]/60">Tarifa referencial</span>
+              <span className="font-extrabold text-[#4F6F52]">{money(service.price)} / {service.unit}</span>
+            </div>
+
+            <h3 className="mb-2.5 mt-5 text-sm font-bold text-[#2F3A2F]">¿Cuándo lo necesitas?</h3>
+            <div className="grid grid-cols-3 gap-2.5">
+              {['Hoy', 'Mañana', 'Esta semana'].map((w) => (
+                <button
+                  key={w}
+                  onClick={() => setWhen(w)}
+                  aria-pressed={when === w}
+                  className={`rounded-2xl px-3 py-2.5 text-sm font-semibold transition ${when === w ? 'bg-[#4F6F52] text-[#F7F3E8] shadow-md' : 'bg-white text-[#2F3A2F] ring-1 ring-black/10 hover:ring-[#4F6F52]/50'}`}
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+
+            <h3 className="mb-2.5 mt-5 text-sm font-bold text-[#2F3A2F]">Detalles de la solicitud</h3>
+            <textarea
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Cuéntanos qué necesitas y dónde (referencia de la dirección)…"
+              className="w-full resize-none rounded-2xl bg-white p-4 text-sm text-[#2F3A2F] outline-none ring-1 ring-black/10 placeholder:text-[#2F3A2F]/35 focus:ring-2 focus:ring-[#4F6F52]"
+            />
+
+            <PrimaryButton className="mt-5" onClick={() => setSent(true)}>
+              Enviar solicitud <ArrowRight className="h-5 w-5" />
+            </PrimaryButton>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const STATUS_STYLES: Record<OrderStatus, string> = {
+  Preparando: 'bg-[#F8EBC2] text-[#8A6D12]',
+  'En camino': 'bg-[#DCE8F2] text-[#3A6490]',
+  Entregado: 'bg-[#DCE8D2] text-[#3E5C41]',
+  Cancelado: 'bg-[#F2D9D0] text-[#9A3F2A]',
+};
+
+const OrdersView = () => {
+  const [filter, setFilter] = useState<'Todos' | Order['kind']>('Todos');
+  const list = MOCK_ORDERS.filter((o) => filter === 'Todos' || o.kind === filter);
+
+  return (
+    <section>
+      <h1 className="text-2xl font-extrabold text-[#2F3A2F] sm:text-3xl">Pedidos realizados</h1>
+      <p className="mt-1 text-sm text-[#2F3A2F]/55">Tus compras de productos y solicitudes de servicios.</p>
+
+      <div className="mt-4 flex gap-2">
+        {(['Todos', 'Producto', 'Servicio'] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            aria-pressed={filter === f}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${filter === f ? 'bg-[#2F3A2F] text-[#F7F3E8]' : 'bg-white text-[#2F3A2F]/70 ring-1 ring-black/5 hover:bg-[#DCE8D2]/50'}`}
+          >
+            {f === 'Todos' ? f : `${f}s`}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {list.length ? list.map((o) => (
+          <article key={o.id} className="flex flex-col gap-3 rounded-3xl bg-white p-4 ring-1 ring-black/5 sm:flex-row sm:items-center sm:p-5">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#DCE8D2] text-[#4F6F52]">
+              {o.kind === 'Producto' ? <Package className="h-6 w-6" /> : <Wrench className="h-6 w-6" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="font-mono text-sm font-bold text-[#4F6F52]">#{o.id}</span>
+                <span className="text-xs text-[#2F3A2F]/50">{o.date} · {o.kind}</span>
+              </div>
+              <p className="mt-1 text-sm text-[#2F3A2F]/80">{o.summary}</p>
+            </div>
+            <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-1.5">
+              <span className="text-lg font-extrabold text-[#2F3A2F]">{money(o.total)}</span>
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_STYLES[o.status]}`}>{o.status}</span>
+            </div>
+          </article>
+        )) : (
+          <div className="rounded-3xl bg-white p-8 text-center text-sm text-[#2F3A2F]/55">Aún no tienes pedidos en esta categoría.</div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const AccountView = ({ form, onEdit }: { form: BillingForm; onEdit: () => void }) => {
+  const rows: { label: string; value: string; icon: LucideIcon }[] = [
+    { label: 'Cédula / RUC', value: form.cedula, icon: FileText },
+    { label: 'Teléfono', value: form.telefono, icon: Phone },
+    { label: 'Dirección de entrega', value: form.direccion, icon: MapPin },
+  ];
+
+  return (
+    <section className="max-w-2xl">
+      <h1 className="text-2xl font-extrabold text-[#2F3A2F] sm:text-3xl">Mi cuenta</h1>
+      <div className="mt-5 rounded-3xl bg-white p-5 ring-1 ring-black/5 sm:p-6">
+        <div className="flex items-center gap-4">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#4F6F52] text-2xl font-bold text-[#F7F3E8]">
+            {(form.nombre || 'I').charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-lg font-extrabold text-[#2F3A2F]">{form.nombre || 'Invitado'}</p>
+            <p className="text-sm text-[#6B7A6B]">Comprador</p>
+          </div>
+        </div>
+
+        <dl className="mt-5 divide-y divide-[#2F3A2F]/10">
+          {rows.map(({ label, value, icon: Icon }) => (
+            <div key={label} className="flex items-center gap-3 py-3.5">
+              <Icon className="h-5 w-5 shrink-0 text-[#86A789]" />
+              <div className="min-w-0">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-[#6B7A6B]">{label}</dt>
+                <dd className={`truncate text-sm ${value ? 'text-[#2F3A2F]' : 'text-[#2F3A2F]/40'}`}>{value || 'Sin completar'}</dd>
+              </div>
+            </div>
+          ))}
+        </dl>
+
+        <PrimaryButton className="mt-3" onClick={onEdit}>Editar mis datos</PrimaryButton>
+      </div>
+    </section>
+  );
+};
+
+interface SettingsState { pedidos: boolean; ofertas: boolean; servicios: boolean; factura: boolean }
+
+const SETTINGS_OPTIONS: { key: keyof SettingsState; label: string; sub: string }[] = [
+  { key: 'pedidos', label: 'Estado de mis pedidos', sub: 'Avisos cuando tu pedido se prepare, salga y llegue.' },
+  { key: 'servicios', label: 'Respuestas de servicios', sub: 'Avisos cuando un profesional responda tu solicitud.' },
+  { key: 'ofertas', label: 'Ofertas y cupones', sub: 'Promociones de productos y servicios de tu zona.' },
+  { key: 'factura', label: 'Factura electrónica por correo', sub: 'Recibe tu factura apenas se confirme el pago.' },
+];
+
+const SettingsView = ({ settings, setSettings }: { settings: SettingsState; setSettings: Setter<SettingsState> }) => (
+  <section className="max-w-2xl">
+    <h1 className="text-2xl font-extrabold text-[#2F3A2F] sm:text-3xl">Ajustes</h1>
+    <p className="mt-1 text-sm text-[#2F3A2F]/55">Elige qué quieres recibir.</p>
+    <div className="mt-5 divide-y divide-[#2F3A2F]/10 rounded-3xl bg-white px-5 ring-1 ring-black/5 sm:px-6">
+      {SETTINGS_OPTIONS.map((o) => (
+        <div key={o.key} className="flex items-center justify-between gap-4 py-4">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#2F3A2F]">{o.label}</p>
+            <p className="text-xs text-[#2F3A2F]/55">{o.sub}</p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings[o.key]}
+            aria-label={o.label}
+            onClick={() => setSettings((s) => ({ ...s, [o.key]: !s[o.key] }))}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition ${settings[o.key] ? 'bg-[#4F6F52]' : 'bg-[#2F3A2F]/20'}`}
+          >
+            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${settings[o.key] ? 'left-[1.375rem]' : 'left-0.5'}`} />
+          </button>
+        </div>
+      ))}
+    </div>
+  </section>
+);
+
+const HomeScreen = ({ go, openProduct, form, itemCount }: { go: Go; openProduct: (id: string) => void; form: BillingForm; itemCount: number }) => {
+  const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
+  const [section, setSection] = useState<Section>('productos');
+  const [query, setQuery] = useState('');
+  const [catId, setCatId] = useState('');
+  const [subId, setSubId] = useState('');
+  const [ownOnly, setOwnOnly] = useState(false);
+  const [requested, setRequested] = useState<Service | null>(null);
+  const [settings, setSettings] = useState<SettingsState>({ pedidos: true, servicios: true, ofertas: false, factura: true });
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !isDesktop()) setSidebarOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sidebarOpen]);
+
+  const selectSection = (s: Section) => {
+    setSection(s);
+    setQuery('');
+    setCatId('');
+    setSubId('');
+    setOwnOnly(false);
+    if (!isDesktop()) setSidebarOpen(false);
+    window.scrollTo({ top: 0 });
+  };
+
+  const selectCat = (id: string) => {
+    setCatId(id);
+    setSubId('');
+  };
+
+  const isServices = section === 'servicios';
+  const isCatalog = section === 'productos' || isServices;
+  const categories = isServices ? SERVICE_CATEGORIES : PRODUCT_CATEGORIES;
+  const q = query.trim().toLowerCase();
+  const inCategory = (categoryId: string, sub: string) => (!catId || categoryId === catId) && (!subId || sub === subId);
+
+  const products = PRODUCTS.filter((p) => inCategory(p.categoryId, p.subId) && (!ownOnly || p.own) && p.name.toLowerCase().includes(q));
+  const services = SERVICES.filter((s) => inCategory(s.categoryId, s.subId) && `${s.title} ${s.provider}`.toLowerCase().includes(q));
+  const resultCount = isServices ? services.length : products.length;
+
+  const currentCat = categories.find((c) => c.id === catId);
+  const currentSub = currentCat?.subs.find((s) => s.id === subId);
+
+  const banner = isServices
+    ? {
+        gradient: 'from-[#F3E3C7] to-[#E8C896]', accent: 'text-[#B7792B]', Icon: Wrench, tag: 'Servicios de tu zona',
+        title: 'Profesionales de confianza, aprobados por la administración',
+        text: <>Mecánicos, niñeras, electricistas y mucho más <b className="text-[#B7792B]">cerca de ti</b></>,
+      }
+    : {
+        gradient: 'from-[#DCE8D2] to-[#C4D9B8]', accent: 'text-[#4F6F52]', Icon: Salad, tag: 'Cosecha de hoy',
+        title: '10% en tu primer pedido sostenible',
+        text: <>Usa el cupón <b className="text-[#4F6F52]">HORIZONTE10</b></>,
+      };
+
+  return (
+    <div className="flex min-h-screen bg-[#F7F3E8]">
+      <Sidebar
+        open={sidebarOpen}
+        section={section}
+        name={form.nombre || 'Invitado'}
+        onSelect={selectSection}
+        onClose={() => setSidebarOpen(false)}
+        onLogout={() => go('welcome')}
+      />
+
+      <div className="min-w-0 flex-1 pb-28">
+        <header className="sticky top-0 z-20 bg-[#4F6F52] shadow-md shadow-[#4F6F52]/20">
+          <Container className="flex flex-wrap items-center gap-x-4 gap-y-3 py-3 md:flex-nowrap md:py-4">
+            <button
+              onClick={() => setSidebarOpen((o) => !o)}
+              aria-label={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
+              aria-expanded={sidebarOpen}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F7F3E8]/15 transition active:scale-90"
+            >
+              <Menu className="h-5 w-5 text-[#F7F3E8]" />
+            </button>
+
+            <div className={`hidden md:block ${sidebarOpen ? 'lg:hidden' : ''}`}><BrandInline onDark /></div>
+
+            <button className="flex items-center gap-2 text-left md:order-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F3E8]/15">
+                <MapPin className="h-5 w-5 text-[#F7F3E8]" />
+              </span>
+              <span>
+                <span className="block text-[10px] font-medium uppercase tracking-wider text-[#DCE8D2]">Entregar en</span>
+                <span className="flex items-center gap-1 text-sm font-bold text-[#F7F3E8]">
+                  {form.direccion ? form.direccion.slice(0, 22) : 'Quito, Ecuador'}
+                  <ChevronDown className="h-4 w-4" />
+                </span>
+              </span>
+            </button>
+
+            {isCatalog ? (
+              <div className="order-last flex w-full items-center gap-3 rounded-2xl bg-[#F7F3E8] px-4 py-3 md:order-1 md:w-auto md:flex-1">
+                <Search className="h-5 w-5 shrink-0 text-[#86A789]" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={isServices ? 'Busca electricista, niñera, mecánico…' : 'Busca lechugas, huevos, frutas…'}
+                  className="w-full min-w-0 bg-transparent text-[15px] text-[#2F3A2F] outline-none placeholder:text-[#2F3A2F]/40"
+                />
+                {query && (
+                  <button onClick={() => setQuery('')} aria-label="Limpiar búsqueda">
+                    <X className="h-4 w-4 text-[#2F3A2F]/50" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="hidden md:order-1 md:block md:flex-1" />
+            )}
+
+            <button
+              onClick={() => go('cart')}
+              aria-label="Ir al carrito"
+              className="relative ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#F7F3E8]/15 md:order-3 md:ml-0"
+            >
+              <ShoppingBasket className="h-5 w-5 text-[#F7F3E8]" />
+              {itemCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#F7F3E8] px-1 text-[11px] font-bold text-[#4F6F52]">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+          </Container>
+        </header>
+
+        <Container className="pt-5 sm:pt-8">
+          {isCatalog && (
+            <>
+              {/* Banner: cambia según la sección */}
+              <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br p-5 sm:p-8 lg:p-12 ${banner.gradient}`}>
+                <div className="relative z-10 max-w-[62%] sm:max-w-md lg:max-w-lg">
+                  <span className={`rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide sm:text-xs ${banner.accent}`}>
+                    {banner.tag}
+                  </span>
+                  <h2 className="mt-3 text-xl font-extrabold leading-tight text-[#2F3A2F] sm:text-3xl lg:text-4xl">{banner.title}</h2>
+                  <p className="mt-1.5 text-xs text-[#2F3A2F]/65 sm:text-base">{banner.text}</p>
+                </div>
+                <banner.Icon className={`absolute -bottom-3 -right-2 h-32 w-32 rotate-6 opacity-25 sm:-right-4 sm:h-52 sm:w-52 lg:right-10 lg:h-72 lg:w-72 ${banner.accent}`} strokeWidth={1.2} />
+                <Leaf className={`absolute right-6 top-4 h-7 w-7 -rotate-12 opacity-40 sm:right-20 sm:h-10 sm:w-10 ${banner.accent}`} />
+              </div>
+
+              <CategoryBar
+                categories={categories}
+                catId={catId}
+                subId={subId}
+                allLabel={isServices ? 'Todos los servicios' : 'Todo'}
+                onCat={selectCat}
+                onSub={setSubId}
+              />
+
+              <div className="mb-4 mt-6 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-extrabold text-[#2F3A2F] sm:text-2xl">
+                    {currentCat ? (
+                      <>
+                        {currentCat.label}
+                        {currentSub && <span className="text-[#4F6F52]"> › {currentSub.label}</span>}
+                      </>
+                    ) : isServices ? 'Servicios disponibles' : 'Destacados sostenibles'}
+                  </h2>
+                  <p className="text-xs text-[#2F3A2F]/55 sm:text-sm">
+                    {resultCount} {isServices ? (resultCount === 1 ? 'servicio' : 'servicios') : (resultCount === 1 ? 'producto' : 'productos')}
+                    {' · '}
+                    {isServices ? 'Profesionales aprobados por la administración' : 'Producción propia y agricultores aliados'}
+                  </p>
+                </div>
+                {!isServices && (
+                  <button
+                    onClick={() => setOwnOnly((v) => !v)}
+                    aria-pressed={ownOnly}
+                    className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition sm:text-sm ${ownOnly ? 'bg-[#4F6F52] text-[#F7F3E8]' : 'bg-white text-[#2F3A2F]/70 ring-1 ring-black/5 hover:bg-[#DCE8D2]/50'}`}
+                  >
+                    <Sprout className="h-4 w-4" /> Solo producción propia
+                  </button>
+                )}
+              </div>
+
+              {resultCount ? (
+                isServices ? (
+                  <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+                    {services.map((s) => <ServiceCard key={s.id} s={s} onRequest={setRequested} />)}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
+                    {products.map((p) => <ProductCard key={p.id} p={p} onOpen={openProduct} />)}
+                  </div>
+                )
+              ) : (
+                <div className="rounded-3xl bg-white p-8 text-center text-sm text-[#2F3A2F]/55">
+                  No encontramos resultados{query ? <> para “{query}”</> : ' en esta categoría'}.
+                </div>
+              )}
+            </>
+          )}
+
+          {section === 'pedidos' && <OrdersView />}
+          {section === 'cuenta' && <AccountView form={form} onEdit={() => go('login')} />}
+          {section === 'ajustes' && <SettingsView settings={settings} setSettings={setSettings} />}
+        </Container>
+
+        <footer className="mt-12 border-t border-[#2F3A2F]/10 py-6 text-center text-xs text-[#2F3A2F]/50">
+          © Horizonte Sostenible · Agricultura sostenible · Ecuador
+        </footer>
+      </div>
+
+      {requested && <ServiceRequestModal service={requested} onClose={() => setRequested(null)} />}
     </div>
   );
 };
