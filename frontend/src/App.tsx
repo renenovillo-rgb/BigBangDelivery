@@ -5,6 +5,7 @@ import { SellerStoriesPage } from './pages/seller/StoryRequestsPage';
 import './App.css';
 import { SellerLayout } from './pages/seller/SellerLayout';
 import { SellerProductsPage } from './pages/seller/ProductPage';
+import BuyerApp from './pages/buyer/BuyerApp';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="perfil" element={<SellerProfilePage />} />
           <Route index element={<Navigate to="/vendedor/pedidos" replace />} />
         </Route>
+        <Route path="/comprador" element={<BuyerApp />} />
       </Routes>
     </BrowserRouter>
   );
