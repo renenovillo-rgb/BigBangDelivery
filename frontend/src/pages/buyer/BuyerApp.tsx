@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import type { ButtonHTMLAttributes, ChangeEvent, Dispatch, ReactNode, SetStateAction } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { ButtonHTMLAttributes, ChangeEvent, Dispatch, ReactNode, SetStateAction, TouchEvent } from 'react';
 import {
   Leaf, MapPin, Search, ChevronDown, Plus, Minus, ShoppingBasket, CreditCard, Landmark,
   Banknote, CheckCircle2, BadgeCheck, ArrowLeft, ArrowRight, Sprout, Truck, Tag, X,
@@ -10,9 +10,9 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import logoHorizonte from './assets/logoHorizonte.jpg';
 import {
-  MOCK_ORDERS, PRODUCT_CATEGORIES, PRODUCTS, SERVICE_CATEGORIES, SERVICES,
+  MOCK_ORDERS, PRODUCT_CATEGORIES, PRODUCTS, SELLERS, SERVICE_CATEGORIES, SERVICES,
 } from './catalog';
-import type { Category, Order, OrderStatus, Product, Service } from './catalog';
+import type { Category, Order, OrderStatus, Product, Seller, Service } from './catalog';
 
 /* ------------------------------------------------------------------ */
 /*  Paleta: crema #F7F3E8 · verde musgo #4F6F52 · salvia #86A789        */
@@ -20,7 +20,7 @@ import type { Category, Order, OrderStatus, Product, Service } from './catalog';
 /*  Diseño responsivo: mobile-first, breakpoints sm / md / lg / xl      */
 /* ------------------------------------------------------------------ */
 
-type ScreenId = 'welcome' | 'login' | 'home' | 'detail' | 'cart' | 'payment';
+type ScreenId = 'welcome' | 'login' | 'home' | 'detail' | 'service' | 'cart' | 'payment';
 type Go = (id: ScreenId) => void;
 type Setter<T> = Dispatch<SetStateAction<T>>;
 
@@ -34,6 +34,7 @@ const SCREENS: { id: ScreenId; label: string; icon: LucideIcon }[] = [
   { id: 'login', label: 'Login y facturación', icon: UserRound },
   { id: 'home', label: 'Catálogo', icon: Home },
   { id: 'detail', label: 'Detalle de producto', icon: Salad },
+  { id: 'service', label: 'Detalle de servicio', icon: Wrench },
   { id: 'cart', label: 'Carrito', icon: ShoppingBasket },
   { id: 'payment', label: 'Pago y recibo', icon: CreditCard },
 ];
@@ -508,7 +509,7 @@ const CategoryBar = ({ categories, catId, subId, allLabel, onCat, onSub }: {
   );
 };
 
-const ServiceCard = ({ s, onRequest }: { s: Service; onRequest: (s: Service) => void }) => {
+const ServiceCard = ({ s, onOpen }: { s: Service; onOpen: (id: string) => void }) => {
   const Icon = s.icon;
   return (
     <article className="flex flex-col overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md">
@@ -531,10 +532,10 @@ const ServiceCard = ({ s, onRequest }: { s: Service; onRequest: (s: Service) => 
             {money(s.price)}<span className="text-[11px] font-medium text-[#2F3A2F]/45"> / {s.unit}</span>
           </span>
           <button
-            onClick={() => onRequest(s)}
+            onClick={() => onOpen(s.id)}
             className="rounded-xl bg-[#4F6F52] px-4 py-2 text-sm font-semibold text-[#F7F3E8] transition active:scale-95 hover:bg-[#435E46]"
           >
-            Solicitar
+            Ver detalle
           </button>
         </div>
       </div>
@@ -723,6 +724,8 @@ const AccountView = ({ form, onEdit }: { form: BillingForm; onEdit: () => void }
   );
 };
 
+interface Browse { section: Section; catId: string; subId: string }
+
 interface SettingsState { pedidos: boolean; ofertas: boolean; servicios: boolean; factura: boolean }
 
 const SETTINGS_OPTIONS: { key: keyof SettingsState; label: string; sub: string }[] = [
@@ -758,14 +761,14 @@ const SettingsView = ({ settings, setSettings }: { settings: SettingsState; setS
   </section>
 );
 
-const HomeScreen = ({ go, openProduct, form, itemCount }: { go: Go; openProduct: (id: string) => void; form: BillingForm; itemCount: number }) => {
+const HomeScreen = ({ go, openProduct, openService, form, itemCount, browse, setBrowse }: {
+  go: Go; openProduct: (id: string) => void; openService: (id: string) => void; form: BillingForm; itemCount: number;
+  browse: Browse; setBrowse: Setter<Browse>;
+}) => {
   const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
-  const [section, setSection] = useState<Section>('productos');
+  const { section, catId, subId } = browse;
   const [query, setQuery] = useState('');
-  const [catId, setCatId] = useState('');
-  const [subId, setSubId] = useState('');
   const [ownOnly, setOwnOnly] = useState(false);
-  const [requested, setRequested] = useState<Service | null>(null);
   const [settings, setSettings] = useState<SettingsState>({ pedidos: true, servicios: true, ofertas: false, factura: true });
 
   useEffect(() => {
@@ -776,19 +779,15 @@ const HomeScreen = ({ go, openProduct, form, itemCount }: { go: Go; openProduct:
   }, [sidebarOpen]);
 
   const selectSection = (s: Section) => {
-    setSection(s);
+    setBrowse({ section: s, catId: '', subId: '' });
     setQuery('');
-    setCatId('');
-    setSubId('');
     setOwnOnly(false);
     if (!isDesktop()) setSidebarOpen(false);
     window.scrollTo({ top: 0 });
   };
 
-  const selectCat = (id: string) => {
-    setCatId(id);
-    setSubId('');
-  };
+  const selectCat = (id: string) => setBrowse((b) => ({ ...b, catId: id, subId: '' }));
+  const selectSub = (id: string) => setBrowse((b) => ({ ...b, subId: id }));
 
   const isServices = section === 'servicios';
   const isCatalog = section === 'productos' || isServices;
@@ -909,7 +908,7 @@ const HomeScreen = ({ go, openProduct, form, itemCount }: { go: Go; openProduct:
                 subId={subId}
                 allLabel={isServices ? 'Todos los servicios' : 'Todo'}
                 onCat={selectCat}
-                onSub={setSubId}
+                onSub={selectSub}
               />
 
               <div className="mb-4 mt-6 flex flex-wrap items-end justify-between gap-3">
@@ -942,7 +941,7 @@ const HomeScreen = ({ go, openProduct, form, itemCount }: { go: Go; openProduct:
               {resultCount ? (
                 isServices ? (
                   <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
-                    {services.map((s) => <ServiceCard key={s.id} s={s} onRequest={setRequested} />)}
+                    {services.map((s) => <ServiceCard key={s.id} s={s} onOpen={openService} />)}
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
@@ -967,7 +966,193 @@ const HomeScreen = ({ go, openProduct, form, itemCount }: { go: Go; openProduct:
         </footer>
       </div>
 
-      {requested && <ServiceRequestModal service={requested} onClose={() => setRequested(null)} />}
+    </div>
+  );
+};
+
+/* -------------------- Carrusel imagen ↔ "Conócenos" (producto y servicio) -------------------- */
+
+/* Ilustraciones de portada (se usan mientras el vendedor no sube una foto real) */
+const GreenhouseScene = () => (
+  <svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMid slice" className="h-full w-full" role="img" aria-label="Invernadero hidropónico">
+    <defs>
+      <linearGradient id="gh-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#CFE6F2" />
+        <stop offset="1" stopColor="#F4F1DC" />
+      </linearGradient>
+      <linearGradient id="gh-glass" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.8" />
+        <stop offset="1" stopColor="#D6E8DA" stopOpacity="0.6" />
+      </linearGradient>
+      <clipPath id="gh-clip"><path d="M100 132 V88 Q100 28 200 28 Q300 28 300 88 V132Z" /></clipPath>
+    </defs>
+    <rect width="400" height="160" fill="url(#gh-sky)" />
+    <circle cx="335" cy="30" r="16" fill="#F6D58A" />
+    <path d="M0 105 Q100 75 200 98 T400 88 V160 H0Z" fill="#B5D0A5" />
+    <path d="M0 128 Q120 104 250 124 T400 116 V160 H0Z" fill="#86A789" />
+    <path d="M100 132 V88 Q100 28 200 28 Q300 28 300 88 V132Z" fill="url(#gh-glass)" />
+    <g clipPath="url(#gh-clip)" stroke="#6B8F73" strokeWidth="1.5" opacity="0.8">
+      {[130, 165, 200, 235, 270].map((x) => <line key={x} x1={x} y1="20" x2={x} y2="132" />)}
+      <line x1="95" y1="88" x2="305" y2="88" />
+    </g>
+    <path d="M100 132 V88 Q100 28 200 28 Q300 28 300 88 V132Z" fill="none" stroke="#6B8F73" strokeWidth="3" />
+    {[0, 1, 2, 3, 4, 5, 6].map((i) => <ellipse key={`a${i}`} cx={118 + i * 28} cy="118" rx="11" ry="7" fill="#6F9561" />)}
+    {[0, 1, 2, 3, 4, 5].map((i) => <ellipse key={`b${i}`} cx={132 + i * 28} cy="127" rx="11" ry="7" fill="#8FB57B" />)}
+    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => <ellipse key={`c${i}`} cx={20 + i * 30} cy="148" rx="12" ry="7" fill="#5E8452" />)}
+  </svg>
+);
+
+const FieldScene = () => (
+  <svg viewBox="0 0 400 160" preserveAspectRatio="xMidYMid slice" className="h-full w-full" role="img" aria-label="Campo de cultivo">
+    <defs>
+      <linearGradient id="fd-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#DDEBF2" />
+        <stop offset="1" stopColor="#F6F0D8" />
+      </linearGradient>
+    </defs>
+    <rect width="400" height="160" fill="url(#fd-sky)" />
+    <circle cx="70" cy="32" r="16" fill="#F6D58A" />
+    <ellipse cx="190" cy="34" rx="30" ry="9" fill="#FFFFFF" opacity="0.8" />
+    <ellipse cx="215" cy="29" rx="20" ry="8" fill="#FFFFFF" opacity="0.8" />
+    <path d="M0 90 Q120 55 250 85 T400 70 V160 H0Z" fill="#C5D8A8" />
+    <path d="M0 110 Q200 90 400 108 V160 H0Z" fill="#9DBA7E" />
+    {[118, 128, 138, 148, 158].map((y) => (
+      <path key={y} d={`M0 ${y} Q200 ${y - 18} 400 ${y - 2}`} fill="none" stroke="#6F9561" strokeWidth="3" />
+    ))}
+    <rect x="300" y="72" width="44" height="30" fill="#C9895B" />
+    <polygon points="296,72 322,52 348,72" fill="#8C4A2F" />
+    <rect x="314" y="84" width="16" height="18" fill="#7A3E26" />
+  </svg>
+);
+
+const CoverArt = ({ seller, tone, iconColor, Icon }: { seller: Seller; tone: string; iconColor: string; Icon: LucideIcon }) => {
+  if (seller.photo) return <img src={seller.photo} alt={`Foto de ${seller.name}`} className="h-full w-full object-cover" />;
+  if (seller.cover === 'invernadero') return <GreenhouseScene />;
+  if (seller.cover === 'campo') return <FieldScene />;
+  return (
+    <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${tone}`}>
+      <Icon className={`h-20 w-20 opacity-40 ${iconColor}`} strokeWidth={1.2} />
+    </div>
+  );
+};
+
+/* Perfil del productor o prestador: quiénes son, a qué se dedican, de dónde son y su puntuación en la app */
+const SellerProfile = ({ seller, tone, iconColor, Icon, countLabel }: {
+  seller: Seller; tone: string; iconColor: string; Icon: LucideIcon; countLabel: string;
+}) => (
+  <div className="min-h-full bg-white pb-24">
+    <div className="h-36 sm:h-44">
+      <CoverArt seller={seller} tone={tone} iconColor={iconColor} Icon={Icon} />
+    </div>
+
+    <div className="px-5 sm:px-6">
+      <span className={`-mt-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br shadow-md ring-4 ring-white ${tone}`}>
+        <Icon className={`h-8 w-8 ${iconColor}`} strokeWidth={1.5} />
+      </span>
+
+      <h3 className="mt-3 text-lg font-extrabold leading-tight text-[#2F3A2F] sm:text-xl">{seller.name}</h3>
+      <p className="text-sm font-medium text-[#4F6F52]">{seller.tagline}</p>
+      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[#2F3A2F]/60">
+        <MapPin className="h-3.5 w-3.5 text-[#86A789]" /> {seller.location}
+      </p>
+
+      <div className="mt-4 grid grid-cols-3 gap-2.5 text-center">
+        <div className="rounded-2xl bg-[#F7F3E8] px-2 py-3">
+          <div className="flex items-center justify-center gap-1 text-lg font-extrabold text-[#2F3A2F]">
+            <Star className="h-4 w-4 fill-[#D9A441] text-[#D9A441]" /> {seller.rating.toFixed(1)}
+          </div>
+          <div className="text-[10px] font-medium uppercase tracking-wide text-[#6B7A6B]">Puntuación</div>
+        </div>
+        <div className="rounded-2xl bg-[#F7F3E8] px-2 py-3">
+          <div className="text-lg font-extrabold text-[#2F3A2F]">{seller.reviews}</div>
+          <div className="text-[10px] font-medium uppercase tracking-wide text-[#6B7A6B]">{countLabel}</div>
+        </div>
+        <div className="rounded-2xl bg-[#F7F3E8] px-2 py-3">
+          <div className="text-lg font-extrabold text-[#2F3A2F]">{seller.since}</div>
+          <div className="text-[10px] font-medium uppercase tracking-wide text-[#6B7A6B]">En Big Ban desde</div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-[13px] leading-relaxed text-[#2F3A2F]/75 sm:text-sm">{seller.about}</p>
+
+      <h4 className="mb-2 mt-4 text-xs font-bold uppercase tracking-wide text-[#6B7A6B]">A qué se dedican</h4>
+      <div className="flex flex-wrap gap-2">
+        {seller.activities.map((a) => (
+          <span key={a} className="rounded-full bg-[#DCE8D2] px-2.5 py-1 text-[11px] font-semibold text-[#3E5C41]">{a}</span>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
+        {seller.badges.map((b) => (
+          <span key={b} className="flex items-center gap-1.5 text-xs font-semibold text-[#4F6F52]">
+            <BadgeCheck className="h-4 w-4" /> {b}
+          </span>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+/* Dos páginas: la imagen del detalle y el perfil de quien vende. Botón con leyenda + puntos + deslizar. */
+const MediaPager = ({ main, profile, legend, backLabel }: {
+  main: ReactNode; profile: ReactNode; legend: string; backLabel: string;
+}) => {
+  const [page, setPage] = useState(0);
+  const touchX = useRef<number | null>(null);
+
+  const onTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    if (touchX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (dx < -50) setPage(1);
+    else if (dx > 50) setPage(0);
+  };
+
+  return (
+    <div
+      role="region"
+      aria-roledescription="carrusel"
+      aria-label="Imagen y perfil del vendedor"
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowRight') setPage(1);
+        if (e.key === 'ArrowLeft') setPage(0);
+      }}
+      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+      onTouchEnd={onTouchEnd}
+      className="relative h-[28rem] overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5 sm:h-[32rem] lg:h-[36rem]"
+    >
+      <div
+        className="flex h-full transition-transform duration-500 ease-out motion-reduce:transition-none"
+        style={{ transform: `translateX(-${page * 100}%)` }}
+      >
+        <div className="h-full w-full shrink-0" inert={page !== 0} aria-hidden={page !== 0}>{main}</div>
+        <div className="h-full w-full shrink-0 overflow-y-auto" inert={page !== 1} aria-hidden={page !== 1}>{profile}</div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex items-center justify-between gap-3">
+        <div className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-2.5 shadow-sm backdrop-blur">
+          {[`Ver ${backLabel.replace('Volver al ', '')}`, legend].map((label, i) => (
+            <button
+              key={label}
+              onClick={() => setPage(i)}
+              aria-label={label}
+              aria-current={page === i}
+              className={`h-2.5 rounded-full transition-all ${page === i ? 'w-6 bg-[#4F6F52]' : 'w-2.5 bg-[#2F3A2F]/25 hover:bg-[#2F3A2F]/40'}`}
+            />
+          ))}
+        </div>
+
+        <button
+          onClick={() => setPage((p) => (p === 0 ? 1 : 0))}
+          className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-full bg-[#2F3A2F] px-4 py-2.5 text-[13px] font-semibold text-[#F7F3E8] shadow-lg transition active:scale-95 hover:bg-[#1F2820] sm:text-sm"
+        >
+          {page === 0 ? (
+            <><span className="truncate">{legend}</span> <ArrowRight className="h-4 w-4 shrink-0" /></>
+          ) : (
+            <><ArrowLeft className="h-4 w-4 shrink-0" /> <span className="truncate">{backLabel}</span></>
+          )}
+        </button>
+      </div>
     </div>
   );
 };
@@ -982,27 +1167,35 @@ const DetailScreen = ({ go, product, selection, setSelection, onAdd }: {
   const subtotal = option.price * qty;
   const Icon = product.icon;
   const isLettuce = product.id === 'lechuga';
+  const seller = SELLERS[product.sellerId];
 
   return (
     <div className="min-h-screen bg-[#F7F3E8] pb-28">
       <PageHeader title="Detalle del producto" onBack={() => go('home')} />
 
       <Container className="grid gap-6 pt-5 lg:grid-cols-2 lg:gap-12 lg:pt-8">
-        {/* Imagen */}
+        {/* Imagen y perfil del vendedor */}
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <div className={`relative flex h-72 items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br sm:h-96 lg:h-[34rem] ${product.tone}`}>
-            <div className="h-56 w-56 sm:h-72 sm:w-72 lg:h-96 lg:w-96">
-              {isLettuce ? <LettuceIllustration /> : <Icon className={`h-full w-full ${product.iconColor}`} strokeWidth={1} />}
-            </div>
-            <button aria-label="Favorito" className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/80 shadow-sm">
-              <Heart className="h-5 w-5 text-[#4F6F52]" />
-            </button>
-            {product.own && (
-              <div className="absolute bottom-4 left-4 right-4">
-                <Badge icon={Sprout}>Producción Única Horizonte Sostenible</Badge>
+          <MediaPager
+            legend={seller.legend}
+            backLabel="Volver al producto"
+            main={
+              <div className={`relative flex h-full items-center justify-center bg-gradient-to-br pb-12 ${product.tone}`}>
+                <div className="h-52 w-52 sm:h-72 sm:w-72 lg:h-96 lg:w-96">
+                  {isLettuce ? <LettuceIllustration /> : <Icon className={`h-full w-full ${product.iconColor}`} strokeWidth={1} />}
+                </div>
+                <button aria-label="Favorito" className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/80 shadow-sm">
+                  <Heart className="h-5 w-5 text-[#4F6F52]" />
+                </button>
+                {product.own && (
+                  <div className="absolute left-4 top-4">
+                    <Badge icon={Sprout}>Producción Única Horizonte Sostenible</Badge>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            }
+            profile={<SellerProfile seller={seller} tone={product.tone} iconColor={product.iconColor} Icon={Icon} countLabel="Opiniones" />}
+          />
         </div>
 
         {/* Información */}
@@ -1088,6 +1281,87 @@ const DetailScreen = ({ go, product, selection, setSelection, onAdd }: {
           </PrimaryButton>
         </div>
       </Container>
+    </div>
+  );
+};
+
+/* ------------------------------ 4b. Detalle de servicio ------------------------------ */
+
+const SERVICE_STEPS = [
+  'Envías tu solicitud con el día y los detalles.',
+  'El prestador la revisa y te contacta para confirmar horario y precio final.',
+  'Recibes el servicio y calificas tu experiencia.',
+];
+
+const ServiceDetailScreen = ({ go, service }: { go: Go; service: Service }) => {
+  const [requesting, setRequesting] = useState(false);
+  const seller = SELLERS[service.sellerId];
+  const Icon = service.icon;
+
+  return (
+    <div className="min-h-screen bg-[#F7F3E8] pb-28">
+      <PageHeader title="Detalle del servicio" onBack={() => go('home')} />
+
+      <Container className="grid gap-6 pt-5 lg:grid-cols-2 lg:gap-12 lg:pt-8">
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <MediaPager
+            legend={seller.legend}
+            backLabel="Volver al servicio"
+            main={
+              <div className={`relative flex h-full items-center justify-center bg-gradient-to-br pb-12 ${service.tone}`}>
+                <Icon className={`h-44 w-44 sm:h-60 sm:w-60 lg:h-72 lg:w-72 ${service.iconColor}`} strokeWidth={0.9} />
+                <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-[#4F6F52] px-3 py-1.5 text-[11px] font-semibold text-[#F7F3E8] shadow sm:text-xs">
+                  <BadgeCheck className="h-3.5 w-3.5" /> Aprobado por la administración
+                </span>
+              </div>
+            }
+            profile={<SellerProfile seller={seller} tone={service.tone} iconColor={service.iconColor} Icon={Icon} countLabel="Trabajos" />}
+          />
+        </div>
+
+        <div>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold leading-tight text-[#2F3A2F] sm:text-4xl">{service.title}</h1>
+              <p className="mt-1 text-sm font-semibold text-[#4F6F52]">{service.provider}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#2F3A2F]/60 sm:text-sm">
+                <span className="flex items-center gap-1"><Star className="h-4 w-4 fill-[#D9A441] text-[#D9A441]" /> {service.rating.toFixed(1)} · {service.jobs} trabajos</span>
+                <span className="flex items-center gap-1"><MapPin className="h-4 w-4 text-[#86A789]" /> {service.zone}</span>
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-2xl font-extrabold text-[#4F6F52] sm:text-3xl">{money(service.price)}</div>
+              <div className="text-[11px] text-[#2F3A2F]/50 sm:text-xs">por {service.unit}</div>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-3xl bg-white p-4 ring-1 ring-black/5 sm:p-5">
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#2F3A2F]">
+              <ShieldCheck className="h-4 w-4 text-[#4F6F52]" /> Sobre este servicio
+            </div>
+            <p className="text-[13px] leading-relaxed text-[#2F3A2F]/70 sm:text-sm">{service.description}</p>
+            <p className="mt-3 text-xs text-[#2F3A2F]/55">
+              La tarifa es referencial: el precio final se confirma con el prestador según tu necesidad.
+            </p>
+          </div>
+
+          <h3 className="mb-2.5 mt-6 text-sm font-bold text-[#2F3A2F]">Cómo funciona</h3>
+          <ol className="space-y-2.5">
+            {SERVICE_STEPS.map((t, i) => (
+              <li key={t} className="flex items-start gap-3 rounded-2xl bg-white p-3.5 text-sm text-[#2F3A2F]/80 ring-1 ring-black/5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#4F6F52] text-xs font-bold text-[#F7F3E8]">{i + 1}</span>
+                {t}
+              </li>
+            ))}
+          </ol>
+
+          <PrimaryButton className="mt-6" onClick={() => setRequesting(true)}>
+            Solicitar servicio <ArrowRight className="h-5 w-5" />
+          </PrimaryButton>
+        </div>
+      </Container>
+
+      {requesting && <ServiceRequestModal service={service} onClose={() => setRequesting(false)} />}
     </div>
   );
 };
@@ -1448,12 +1722,15 @@ export default function BuyerApp() {
   const [screen, setScreen] = useState<ScreenId>('welcome');
   const [form, setForm] = useState<BillingForm>({ cedula: '', nombre: '', telefono: '', direccion: '' });
   const [productId, setProductId] = useState('lechuga');
+  const [serviceId, setServiceId] = useState(SERVICES[0].id);
+  const [browse, setBrowse] = useState<Browse>({ section: 'productos', catId: '', subId: '' });
   const [selection, setSelection] = useState<Selection>({ qty: 2, optionIdx: 1, notes: '' });
   const [coupon, setCoupon] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
   const product = PRODUCTS.find((p) => p.id === productId) ?? PRODUCTS[0];
+  const service = SERVICES.find((s) => s.id === serviceId) ?? SERVICES[0];
   const option = product.options[selection.optionIdx] ?? product.options[0];
 
   const totals = useMemo(() => {
@@ -1486,13 +1763,24 @@ export default function BuyerApp() {
     go('detail');
   };
 
+  const openService = (id: string) => {
+    setServiceId(id);
+    go('service');
+  };
+
   return (
     <div className="min-h-screen bg-[#F7F3E8] font-sans text-[#2F3A2F] antialiased">
       <div key={screen}>
         {screen === 'welcome' && <WelcomeScreen go={go} />}
         {screen === 'login' && <LoginScreen go={go} form={form} setForm={setForm} />}
-        {screen === 'home' && <HomeScreen go={go} openProduct={openProduct} form={form} itemCount={selection.qty} />}
+        {screen === 'home' && (
+          <HomeScreen
+            go={go} openProduct={openProduct} openService={openService} form={form} itemCount={selection.qty}
+            browse={browse} setBrowse={setBrowse}
+          />
+        )}
         {screen === 'detail' && <DetailScreen go={go} product={product} selection={selection} setSelection={setSelection} onAdd={() => go('cart')} />}
+        {screen === 'service' && <ServiceDetailScreen go={go} service={service} />}
         {screen === 'cart' && (
           <CartScreen
             go={go} product={product} selection={selection} setSelection={setSelection} totals={totals}
