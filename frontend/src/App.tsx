@@ -9,8 +9,9 @@ import BuyerApp from './pages/buyer/BuyerApp';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
+        <Route path="/" element={<Navigate to="/comprador" replace />} />
         <Route path="/vendedor" element={<SellerLayout />}>
           <Route path="pedidos" element={<SellerOrdersPage />} />
           <Route path="productos" element={<SellerProductsPage />} />
