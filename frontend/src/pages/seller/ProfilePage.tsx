@@ -1,402 +1,223 @@
 import { useState } from 'react';
-import type { PerfilVendedor, SolicitudActualizacionPerfil } from '../../types';
+import type { FormEvent } from 'react';
+import {
+  BadgeCheck, BookOpen, Clock, FileText, Lock, Mail, MapPin, Phone, ShieldCheck, Store, UserRound,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { SolicitudActualizacionPerfil } from '../../types';
+import { useSeller } from './sellerContext';
+import type { ChangeField } from './sellerContext';
+import { Button, Card, Field, LinkButton, Modal, PageHeading, Pill, SectionTitle } from './ui';
+import type { Tone } from './utils';
+import { daysUntil, inputCls, money, prettyStamp } from './utils';
 
-// Datos simulados del vendedor alineados con el esquema de la DB y el SRI
-const INITIAL_PROFILE: PerfilVendedor = {
-  id: 'SEL-001',
-  usuarioId: 'USR-001',
-  nombreCompleto: 'Alexis Sebastian Gómez',
-  nombreComercial: 'Distribuidora Gómez & Hijos',
-  fotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-  email: 'alexis.gomez@ejemplo.com',
-  telefono: '0998765432',
-  identificacionFiscal: '0102030405001',
-  direccionNegocio: 'Av. Huayna Cápac y Calle Larga, Cuenca',
-  establecimiento: '001',
-  puntoEmision: '001',
-  esEditable: false,
+const FIELD_LABEL: Record<ChangeField, string> = {
+  direccionNegocio: 'Dirección fiscal del negocio',
+  telefono: 'Teléfono de contacto',
+  identificacionFiscal: 'RUC / Cédula',
+  email: 'Correo electrónico',
+  nombreComercial: 'Nombre comercial',
 };
 
-// Productos simulados para vincular a la solicitud de historia
-const MY_PRODUCTS = [
-  { id: 'PROD-001', name: 'Miel Artesanal 500g' },
-  { id: 'PROD-002', name: 'Queso Andino Madurado' },
-  { id: 'PROD-003', name: 'Asesoría en Huertos Urbanos' },
-];
+const REQUEST_STATUS: Record<SolicitudActualizacionPerfil['estado'], { label: string; tone: Tone }> = {
+  PENDIENTE: { label: 'Pendiente', tone: 'amber' },
+  APROBADA: { label: 'Aprobada', tone: 'green' },
+  RECHAZADA: { label: 'Rechazada', tone: 'red' },
+};
 
 export const SellerProfilePage = () => {
-  const [profile] = useState<PerfilVendedor>(INITIAL_PROFILE);
+  const { profile, plan, subscription, products, settings, storeOpen, changeRequests, addChangeRequest } = useSeller();
 
-  const [isDataModalOpen, setIsDataModalOpen] = useState(false);
-  const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
-
-  const [campoAModificar, setCampoAModificar] = useState<
-    'telefono' | 'email' | 'identificacionFiscal' | 'direccionNegocio' | 'nombreComercial'
-  >('direccionNegocio');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [campo, setCampo] = useState<ChangeField>('direccionNegocio');
   const [nuevoValor, setNuevoValor] = useState('');
   const [justificacion, setJustificacion] = useState('');
+  const [error, setError] = useState('');
 
-  const [storyRequest, setStoryRequest] = useState({
-    productId: MY_PRODUCTS[0].id,
-    proposedStory: '',
-    mediaUrl: '',
-  });
-
-  // Obtener el valor actual dinámicamente según el campo seleccionado
-  const getCurrentFieldValue = () => {
-    switch (campoAModificar) {
-      case 'direccionNegocio':
-        return profile.direccionNegocio;
-      case 'telefono':
-        return profile.telefono;
-      case 'email':
-        return profile.email;
-      case 'identificacionFiscal':
-        return profile.identificacionFiscal;
-      case 'nombreComercial':
-        return profile.nombreComercial || 'No registrado';
-      default:
-        return '';
-    }
+  const current: Record<ChangeField, string> = {
+    direccionNegocio: profile.direccionNegocio,
+    telefono: profile.telefono,
+    identificacionFiscal: profile.identificacionFiscal,
+    email: profile.email,
+    nombreComercial: profile.nombreComercial ?? 'No registrado',
   };
 
-  // Enviar solicitud de cambio de datos
-  const handleDataRequestSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nuevoValor.trim() || !justificacion.trim()) {
-      alert('Por favor completa el nuevo valor y la justificación.');
-      return;
-    }
+  const rows: { label: string; value: string; icon: LucideIcon; mono?: boolean }[] = [
+    { label: 'Correo de contacto', value: profile.email, icon: Mail },
+    { label: 'Teléfono', value: profile.telefono, icon: Phone },
+    { label: 'RUC / Cédula (facturación)', value: profile.identificacionFiscal, icon: FileText, mono: true },
+    { label: 'Establecimiento – punto de emisión (SRI)', value: `${profile.establecimiento} – ${profile.puntoEmision}`, icon: ShieldCheck, mono: true },
+    { label: 'Dirección fiscal del negocio', value: profile.direccionNegocio, icon: MapPin },
+  ];
 
-    const payload: Partial<SolicitudActualizacionPerfil> = {
-      vendedorId: profile.id,
-      campoAModificar,
-      valorActual: getCurrentFieldValue(),
-      nuevoValor,
-      justificacion,
-      estado: 'PENDIENTE',
-    };
+  const used = products.length;
+  const usedPct = Math.min(100, Math.round((used / plan.limiteProductos) * 100));
+  const renewIn = daysUntil(subscription.fechaFin);
+  const hasPending = changeRequests.some((r) => r.campoAModificar === campo && r.estado === 'PENDIENTE');
 
-    console.log('Solicitud enviada a NestJS:', payload);
-    alert('Solicitud de cambio de datos enviada con éxito. El Administrador revisará tus cambios.');
-    
-    setIsDataModalOpen(false);
+  const openModal = () => {
+    setCampo('direccionNegocio');
     setNuevoValor('');
     setJustificacion('');
+    setError('');
+    setModalOpen(true);
   };
 
-  // Enviar borrador de historia
-  const handleStoryRequestSubmit = (e: React.FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!storyRequest.proposedStory.trim()) {
-      alert('Por favor redacta la historia antes de enviarla.');
-      return;
-    }
-
-    alert(
-      'Borrador de historia enviado al Administrador. Recibirás una notificación cuando sea revisado y publicado.'
-    );
-    setIsStoryModalOpen(false);
-    setStoryRequest({ productId: MY_PRODUCTS[0].id, proposedStory: '', mediaUrl: '' });
+    if (!nuevoValor.trim() || !justificacion.trim()) { setError('Completa el nuevo valor y la justificación.'); return; }
+    if (nuevoValor.trim() === current[campo]) { setError('El nuevo valor es igual al actual.'); return; }
+    addChangeRequest(campo, nuevoValor, justificacion);
+    setModalOpen(false);
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Encabezado */}
-      <div>
-        <h1 className="text-2xl font-bold text-teal-900">Perfil del Vendedor</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Gestiona tu información comercial, tus datos de emisión fiscal SRI y postula historias de tus productos.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeading title="Mi perfil" subtitle="Tus datos comerciales, la información fiscal para facturar y tu plan." />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tarjeta de Datos Personales y Fiscales (2 Columnas) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-200 space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-gray-100 pb-5">
-            <img
-              src={profile.fotoUrl}
-              alt={profile.nombreCompleto}
-              className="w-20 h-20 rounded-2xl object-cover border-2 border-teal-700/20 shadow-xs"
-            />
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold text-gray-900">{profile.nombreCompleto}</h2>
-              {profile.nombreComercial && (
-                <p className="text-xs font-semibold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-md inline-block border border-teal-200">
-                  {profile.nombreComercial}
-                </p>
-              )}
-              <div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 rounded-full border border-emerald-200">
-                  ✓ Datos Verificados por Admin
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="p-5 sm:p-6">
+            <div className="flex items-center gap-4">
+              {profile.fotoUrl ? (
+                <img src={profile.fotoUrl} alt={profile.nombreCompleto} className="h-16 w-16 shrink-0 rounded-full object-cover ring-4 ring-[#DCE8D2]" />
+              ) : (
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#4F6F52] text-2xl font-bold text-[#F7F3E8]">
+                  {profile.nombreCompleto.charAt(0).toUpperCase()}
                 </span>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-lg font-extrabold text-[#2F3A2F]">{profile.nombreCompleto}</p>
+                <p className="flex items-center gap-1.5 truncate text-sm text-[#6B7A6B]"><Store className="h-4 w-4 shrink-0" /> {profile.nombreComercial ?? 'Sin nombre comercial'}</p>
+                <Pill tone="green" icon={BadgeCheck} className="mt-1.5">Datos verificados</Pill>
               </div>
             </div>
-          </div>
 
-          {/* Aviso de Solo Lectura */}
-          <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-3">
-            <span className="text-base">🔒</span>
-            <p className="leading-relaxed">
-              Por motivos de seguridad y validez de facturación electrónica (SRI), tus datos personales no se pueden editar directamente. Si necesitas corregirlos, envía una solicitud de actualización.
-            </p>
-          </div>
-
-          {/* Rejilla de Campos */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="space-y-1">
-              <label className="font-semibold text-gray-700">Correo de Contacto</label>
-              <input
-                type="text"
-                value={profile.email}
-                readOnly
-                className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed outline-none font-medium"
-              />
+            <div className="mt-5 flex items-start gap-3 rounded-2xl bg-[#F8EBC2]/70 p-3.5 text-xs leading-relaxed text-[#6B5410]">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>Por seguridad y validez de la facturación electrónica (SRI), estos datos no se editan directamente. Si necesitas corregirlos, envía una solicitud al administrador.</p>
             </div>
 
-            <div className="space-y-1">
-              <label className="font-semibold text-gray-700">Teléfono</label>
-              <input
-                type="text"
-                value={profile.telefono}
-                readOnly
-                className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed outline-none font-medium"
-              />
-            </div>
+            <dl className="mt-3 divide-y divide-[#2F3A2F]/10">
+              {rows.map(({ label, value, icon: Icon, mono }) => (
+                <div key={label} className="flex items-center gap-3 py-3.5">
+                  <Icon className="h-5 w-5 shrink-0 text-[#86A789]" />
+                  <div className="min-w-0">
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-[#6B7A6B]">{label}</dt>
+                    <dd className={`text-sm text-[#2F3A2F] ${mono ? 'font-mono' : ''}`}>{value}</dd>
+                  </div>
+                </div>
+              ))}
+            </dl>
 
-            <div className="space-y-1">
-              <label className="font-semibold text-gray-700">RUC / Cédula (Facturación)</label>
-              <input
-                type="text"
-                value={profile.identificacionFiscal}
-                readOnly
-                className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed outline-none font-mono font-medium"
-              />
-            </div>
+            <Button className="mt-3 w-full" onClick={openModal}>Solicitar cambio de información</Button>
+          </Card>
 
-            <div className="space-y-1">
-              <label className="font-semibold text-gray-700">Punto Emisión SRI (Est. - Pt.Em)</label>
-              <input
-                type="text"
-                value={`${profile.establecimiento} - ${profile.puntoEmision}`}
-                readOnly
-                className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-teal-900 cursor-not-allowed outline-none font-mono font-bold"
-              />
-            </div>
-
-            <div className="sm:col-span-2 space-y-1">
-              <label className="font-semibold text-gray-700">Dirección Fiscal del Negocio</label>
-              <input
-                type="text"
-                value={profile.direccionNegocio}
-                readOnly
-                className="w-full p-2.5 bg-stone-100/70 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed outline-none font-medium"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={() => setIsDataModalOpen(true)}
-            className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-teal-900 font-semibold rounded-xl text-xs transition-colors border border-stone-300 shadow-xs cursor-pointer"
-          >
-            Solicitar Cambio de Información
-          </button>
+          <Card className="p-5 sm:p-6">
+            <SectionTitle>Mis solicitudes de cambio</SectionTitle>
+            {changeRequests.length ? (
+              <ul className="divide-y divide-[#2F3A2F]/10">
+                {changeRequests.map((r) => {
+                  const st = REQUEST_STATUS[r.estado];
+                  return (
+                    <li key={r.id} className="py-3.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[#2F3A2F]">{FIELD_LABEL[r.campoAModificar]}</p>
+                          <p className="mt-0.5 text-xs text-[#2F3A2F]/60">
+                            <span className="line-through">{r.valorActual}</span> → <b className="text-[#2F3A2F]">{r.nuevoValor}</b>
+                          </p>
+                          <p className="mt-0.5 text-xs text-[#2F3A2F]/45">{prettyStamp(r.fechaCreacion)} · {r.justificacion}</p>
+                        </div>
+                        <Pill tone={st.tone}>{st.label}</Pill>
+                      </div>
+                      {r.respuestaAdmin && <p className="mt-2 rounded-2xl bg-[#F7F3E8] p-3 text-xs text-[#2F3A2F]/70"><b>Administrador:</b> {r.respuestaAdmin}</p>}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-[#2F3A2F]/55">Aún no has enviado solicitudes.</p>
+            )}
+          </Card>
         </div>
 
-        {/* Tarjeta Explicativa de Historias (1 Columna) */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 space-y-5 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-800 text-lg font-bold">
-                📖
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-teal-900">Historias de Productos</h3>
-                <p className="text-xs text-gray-500">Crea un vínculo emocional con tus compradores</p>
-              </div>
-            </div>
-
-            <div className="bg-stone-50 p-4 rounded-xl border border-stone-200/80 text-xs text-gray-700 space-y-3">
-              <h4 className="font-bold text-teal-900 uppercase tracking-wider text-[11px]">
-                ¿En qué consiste este módulo?
-              </h4>
-              <p className="leading-relaxed">
-                Las <strong>Historias de Productos</strong> permiten destacar el origen artesanal, el impacto comunitario o el proceso de elaboración de tus artículos en la portada de la plataforma.
+        <div className="space-y-6">
+          <Card className="p-5 sm:p-6">
+            <SectionTitle>Mi tienda</SectionTitle>
+            <div className="space-y-3 text-sm">
+              <p className="flex items-center justify-between gap-3">
+                <span className="text-[#2F3A2F]/60">Estado</span>
+                <Pill tone={storeOpen ? 'green' : 'red'}>{storeOpen ? 'Abierta' : 'Cerrada'}</Pill>
               </p>
-              <ul className="space-y-2 text-stone-600 list-disc list-inside text-[11px]">
-                <li>Envías un borrador con la historia y fotos/videos demostrativos.</li>
-                <li>
-                  El <strong>Administrador</strong> revisa la calidad del contenido y aprueba la publicación.
-                </li>
-                <li>Una vez aprobada, tu historia aparecerá en la sección destacada.</li>
-              </ul>
+              <p className="flex items-center justify-between gap-3">
+                <span className="text-[#2F3A2F]/60">Aprobación</span>
+                <Pill tone="green" icon={BadgeCheck}>Aprobada</Pill>
+              </p>
+              <p className="flex items-start gap-2 text-[#2F3A2F]/70"><Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#86A789]" /> {settings.horarioAtencion}</p>
             </div>
-          </div>
+            <LinkButton to="/vendedor/ajustes" className="mt-4 w-full">Cambiar horario y estado</LinkButton>
+          </Card>
 
-          <button
-            onClick={() => setIsStoryModalOpen(true)}
-            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition-colors shadow-sm cursor-pointer mt-4"
-          >
-            Postular Borrador de Historia
-          </button>
+          <Card className="p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-extrabold text-[#2F3A2F] sm:text-lg">{plan.nombre}</h2>
+              <Pill tone={subscription.estado === 'activa' ? 'green' : 'red'}>{subscription.estado === 'activa' ? 'Activo' : 'Vencido'}</Pill>
+            </div>
+            <p className="mt-1 text-2xl font-extrabold text-[#4F6F52]">{money(plan.precioMensual)}<span className="text-xs font-medium text-[#2F3A2F]/45"> / mes</span></p>
+            <p className="mt-3 flex justify-between text-sm text-[#2F3A2F]/70">
+              <span>Publicaciones</span><span className="font-bold text-[#2F3A2F]">{used} de {plan.limiteProductos}</span>
+            </p>
+            <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[#2F3A2F]/10">
+              <div className={`h-full rounded-full ${usedPct >= 90 ? 'bg-[#B4533C]' : 'bg-[#4F6F52]'}`} style={{ width: `${usedPct}%` }} />
+            </div>
+            <ul className="mt-3 space-y-1 text-xs text-[#2F3A2F]/60">
+              <li>Comisión del {plan.comisionPorcentaje}% por venta.</li>
+              <li>Vigente hasta el {subscription.fechaFin} ({renewIn} día{renewIn === 1 ? '' : 's'}).</li>
+            </ul>
+          </Card>
+
+          <Card className="p-5 sm:p-6">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#DCE8D2] text-[#4F6F52]"><BookOpen className="h-5 w-5" /></span>
+            <h2 className="mt-3 text-base font-extrabold text-[#2F3A2F]">Historias de productos</h2>
+            <p className="mt-1 text-sm leading-relaxed text-[#2F3A2F]/60">
+              Destaca el origen y el proceso de tus productos. El administrador las revisa y las publica en la portada.
+            </p>
+            <LinkButton to="/vendedor/historias" variant="primary" className="mt-4 w-full"><UserRound className="h-4 w-4" /> Ir a mis historias</LinkButton>
+          </Card>
         </div>
       </div>
 
-      {/* Modal 1: Solicitar Cambio de Datos */}
-      {isDataModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 border border-gray-100">
-            <div className="border-b border-gray-100 pb-3">
-              <h3 className="text-lg font-bold text-teal-900">Solicitar Modificación de Datos</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Indica qué dato deseas actualizar para que el Administrador revise y autorice el cambio.
-              </p>
-            </div>
-
-            <form onSubmit={handleDataRequestSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">Campo a Modificar</label>
-                <select
-                  value={campoAModificar}
-                  onChange={(e) =>
-                    setCampoAModificar(
-                      e.target.value as 'telefono' | 'email' | 'identificacionFiscal' | 'direccionNegocio' | 'nombreComercial'
-                    )
-                  }
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none bg-white"
-                >
-                  <option value="businessAddress">Dirección Fiscal del Negocio</option>
-                  <option value="phone">Teléfono de Contacto</option>
-                  <option value="taxId">RUC / Cédula</option>
-                  <option value="email">Correo Electrónico</option>
-                  <option value="tradeName">Nombre Comercial</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-500">Valor Actual Registrado</label>
-                <input
-                  type="text"
-                  value={getCurrentFieldValue()}
-                  readOnly
-                  className="w-full p-2.5 bg-stone-100 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">Nuevo Valor Solicitado</label>
-                <input
-                  type="text"
-                  required
-                  value={nuevoValor}
-                  onChange={(e) => setNuevoValor(e.target.value)}
-                  placeholder="Escribe el nuevo dato correcto..."
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">Justificación / Motivo del Cambio</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={justificacion}
-                  onChange={(e) => setJustificacion(e.target.value)}
-                  placeholder="Ej: Cambio de domicilio fiscal o renovación de número telefónico..."
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none resize-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsDataModalOpen(false)}
-                  className="px-4 py-2 bg-stone-200 hover:bg-stone-300 text-gray-800 font-semibold rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm transition-colors"
-                >
-                  Enviar Solicitud
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 2: Solicitar Historia de Producto */}
-      {isStoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 border border-gray-100">
-            <div className="border-b border-gray-100 pb-3">
-              <h3 className="text-lg font-bold text-teal-900">Borrador de Historia de Producto</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Redacta la historia que respalda a tu producto para la evaluación del Administrador.
-              </p>
-            </div>
-
-            <form onSubmit={handleStoryRequestSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">Seleccionar Producto</label>
-                <select
-                  value={storyRequest.productId}
-                  onChange={(e) => setStoryRequest({ ...storyRequest, productId: e.target.value })}
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none bg-white"
-                >
-                  {MY_PRODUCTS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">Narrativa / Historia del Producto</label>
-                <textarea
-                  rows={5}
-                  required
-                  value={storyRequest.proposedStory}
-                  onChange={(e) => setStoryRequest({ ...storyRequest, proposedStory: e.target.value })}
-                  placeholder="Cuéntanos el origen, quiénes lo elaboran, la tradición familiar o el valor orgánico de este producto..."
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none resize-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">
-                  Enlace a Foto o Video Promocional (Opcional)
-                </label>
-                <input
-                  type="url"
-                  value={storyRequest.mediaUrl}
-                  onChange={(e) => setStoryRequest({ ...storyRequest, mediaUrl: e.target.value })}
-                  placeholder="https://ejemplo.com/foto-historia.jpg"
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsStoryModalOpen(false)}
-                  className="px-4 py-2 bg-stone-200 hover:bg-stone-300 text-gray-800 font-semibold rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm transition-colors"
-                >
-                  Enviar a Revisión de Admin
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {modalOpen && (
+        <Modal
+          onClose={() => setModalOpen(false)}
+          title="Solicitar cambio de datos"
+          subtitle="El administrador revisará y autorizará el cambio."
+          footer={(
+            <>
+              <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
+              <Button type="submit" form="change-form" disabled={hasPending}>Enviar solicitud</Button>
+            </>
+          )}
+        >
+          <form id="change-form" noValidate onSubmit={submit} className="space-y-4 pb-3">
+            <Field label="Dato a modificar">
+              <select value={campo} onChange={(e) => { setCampo(e.target.value as ChangeField); setError(''); }} className={inputCls}>
+                {(Object.keys(FIELD_LABEL) as ChangeField[]).map((k) => <option key={k} value={k}>{FIELD_LABEL[k]}</option>)}
+              </select>
+            </Field>
+            <Field label="Valor actual">
+              <input value={current[campo]} readOnly className={`${inputCls} cursor-not-allowed text-[#2F3A2F]/55`} />
+            </Field>
+            <Field label="Nuevo valor">
+              <input value={nuevoValor} onChange={(e) => { setNuevoValor(e.target.value); setError(''); }} placeholder="Escribe el dato correcto" className={inputCls} />
+            </Field>
+            <Field label="Justificación" error={error || undefined}>
+              <textarea rows={3} value={justificacion} onChange={(e) => { setJustificacion(e.target.value); setError(''); }} placeholder="Ej: cambio de domicilio fiscal o renovación de número telefónico…" className={`${inputCls} resize-none`} />
+            </Field>
+            {hasPending && <p className="rounded-2xl bg-[#F8EBC2]/70 p-3 text-xs text-[#6B5410]">Ya tienes una solicitud pendiente para este dato. Espera la respuesta del administrador.</p>}
+          </form>
+        </Modal>
       )}
     </div>
   );
