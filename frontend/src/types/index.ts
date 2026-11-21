@@ -217,6 +217,7 @@ export interface Pedido {
   estadoPedido: EstadoPedido;
   estadoPago: EstadoPago;
   motivoCancelacion?: string;
+  numeroFactura?: string; // Se asigna al aceptar el pedido y emitir la factura
 
   fechaCreacion: string;
   fechaActualizacion?: string;
