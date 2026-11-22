@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, BookOpen, Bell, LayoutDashboard, Menu, Package, Receipt, Settings, Store, UserRound, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { SellerProvider } from './SellerProvider';
 import { useSeller } from './sellerContext';
-import { BrandInline, Container } from './ui';
+import { BrandInline, Container } from '../../components/ui';
+import { ViewSwitcher } from '../../components/ViewSwitcher';
 
 interface NavItem { to: string; label: string; icon: LucideIcon; badge?: number }
 
@@ -22,9 +22,10 @@ const SECTION_TITLES: Record<string, string> = {
   ajustes: 'Ajustes',
 };
 
-const Shell = () => {
+export const SellerLayout = () => {
   const { profile, orders, storeOpen, setStoreOpen } = useSeller();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
 
   const pending = orders.filter((o) => o.estadoPedido === 'PENDIENTE').length;
@@ -198,12 +199,15 @@ const Shell = () => {
           © Horizonte Sostenible · Panel del vendedor · Ecuador
         </footer>
       </div>
+
+      <ViewSwitcher
+        role="vendedor"
+        title="Navegar pantallas"
+        items={groups.flatMap((g) => g.items).map((i) => ({ id: i.to, label: i.label, icon: i.icon }))}
+        activeId={`/vendedor/${pathname.split('/')[2] ?? 'resumen'}`}
+        onSelect={(to) => navigate(to)}
+      />
     </div>
   );
 };
 
-export const SellerLayout = () => (
-  <SellerProvider>
-    <Shell />
-  </SellerProvider>
-);

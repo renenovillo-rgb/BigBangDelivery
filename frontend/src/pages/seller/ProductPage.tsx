@@ -8,8 +8,8 @@ import type { EstadoProducto, ModalidadServicio, Producto, TipoItem } from '../.
 import { EMPTY_PRODUCT_FORM } from './sellerData';
 import type { ProductForm } from './sellerData';
 import { isLowStock, useSeller } from './sellerContext';
-import { Button, Card, Chip, ConfirmModal, EmptyState, Field, Modal, PageHeading, Pill, ProductThumb } from './ui';
-import { ITEM_TYPE, PRODUCT_STATUS, dateKey, daysUntil, inputCls, money } from './utils';
+import { Button, Card, Chip, ConfirmModal, EmptyState, Field, Modal, PageHeading, Pill, ProductThumb } from '../../components/ui';
+import { ITEM_TYPE, PRODUCT_STATUS, dateKey, daysUntil, inputCls, money } from '../../components/utils';
 
 type TypeFilter = 'TODOS' | TipoItem;
 type StatusFilter = 'TODOS' | 'PUBLICADOS' | 'EN_REVISION' | 'BORRADORES' | 'RECHAZADOS' | 'PAUSADOS';
@@ -31,7 +31,6 @@ const STATUS_FILTERS: { id: StatusFilter; label: string; match: EstadoProducto[]
 ];
 
 const UNITS = ['unidad', 'kg', 'libra', 'litro', 'frasco', 'atado', 'canasta', 'docena'];
-const CATEGORY_HINTS = ['Alimentos', 'Lácteos', 'Hortalizas', 'Frutas', 'Bebidas', 'Artesanías', 'Servicios'];
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const typeBtn = (active: boolean) =>
@@ -70,7 +69,7 @@ const validate = (f: ProductForm, asDraft: boolean): Errors => {
 };
 
 export const SellerProductsPage = () => {
-  const { products, plan, settings, saveProduct, deleteProduct, togglePublished, adjustStock, notify } = useSeller();
+  const { products, plan, settings, categories, saveProduct, deleteProduct, togglePublished, adjustStock, notify } = useSeller();
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('TODOS');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('TODOS');
@@ -308,7 +307,7 @@ export const SellerProductsPage = () => {
               </Field>
               <Field label="Categoría">
                 <input list="seller-categories" value={form.categoriaNombre} onChange={(e) => set('categoriaNombre', e.target.value)} placeholder="Ej: Lácteos" className={inputCls} />
-                <datalist id="seller-categories">{CATEGORY_HINTS.map((c) => <option key={c} value={c} />)}</datalist>
+                <datalist id="seller-categories">{categories.map((c) => <option key={c} value={c} />)}</datalist>
               </Field>
               {physical && (
                 <Field label="Unidad de medida">

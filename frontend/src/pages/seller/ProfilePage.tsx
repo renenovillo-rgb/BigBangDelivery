@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import {
-  BadgeCheck, BookOpen, Clock, FileText, Lock, Mail, MapPin, Phone, ShieldCheck, Store, UserRound,
+  BadgeCheck, BookOpen, Clock, FileText, Globe, Lock, Mail, MapPin, Pencil, Phone, ShieldCheck, Store, UserRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { SolicitudActualizacionPerfil } from '../../types';
 import { useSeller } from './sellerContext';
 import type { ChangeField } from './sellerContext';
-import { Button, Card, Field, LinkButton, Modal, PageHeading, Pill, SectionTitle } from './ui';
-import type { Tone } from './utils';
-import { daysUntil, inputCls, money, prettyStamp } from './utils';
+import { Button, Card, Field, LinkButton, Modal, PageHeading, Pill, SectionTitle } from '../../components/ui';
+import type { Tone } from '../../components/utils';
+import { daysUntil, inputCls, money, prettyStamp } from '../../components/utils';
 
 const FIELD_LABEL: Record<ChangeField, string> = {
   direccionNegocio: 'Dirección fiscal del negocio',
@@ -26,13 +26,52 @@ const REQUEST_STATUS: Record<SolicitudActualizacionPerfil['estado'], { label: st
 };
 
 export const SellerProfilePage = () => {
-  const { profile, plan, subscription, products, settings, storeOpen, changeRequests, addChangeRequest } = useSeller();
+  const { profile, plan, subscription, products, settings, storeOpen, changeRequests, publicProfile, profileRequests, addChangeRequest, addProfileRequest } = useSeller();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [campo, setCampo] = useState<ChangeField>('direccionNegocio');
   const [nuevoValor, setNuevoValor] = useState('');
   const [justificacion, setJustificacion] = useState('');
   const [error, setError] = useState('');
+
+  // Perfil público (lo que ve el comprador en "Conoce quiénes somos")
+  const [pubOpen, setPubOpen] = useState(false);
+  const [pub, setPub] = useState({ tagline: '', location: '', about: '', activities: '', justificacion: '' });
+  const [pubError, setPubError] = useState('');
+  const pendingPublic = profileRequests.find((r) => r.estado === 'PENDIENTE');
+  const lastPublic = profileRequests.find((r) => r.estado !== 'PENDIENTE');
+
+  const openPublic = () => {
+    if (!publicProfile) return;
+    setPub({
+      tagline: publicProfile.tagline,
+      location: publicProfile.location,
+      about: publicProfile.about,
+      activities: publicProfile.activities.join('\n'),
+      justificacion: '',
+    });
+    setPubError('');
+    setPubOpen(true);
+  };
+
+  const submitPublic = (e: FormEvent) => {
+    e.preventDefault();
+    if (!publicProfile) return;
+    const activities = pub.activities.split('\n').map((a) => a.trim()).filter(Boolean);
+    if (pub.tagline.trim().length < 5 || pub.about.trim().length < 30 || !pub.location.trim() || !activities.length) {
+      setPubError('Completa el lema, la ubicación, la descripción (mínimo 30 caracteres) y al menos una actividad.');
+      return;
+    }
+    const cambios = {
+      ...(pub.tagline.trim() !== publicProfile.tagline && { tagline: pub.tagline.trim() }),
+      ...(pub.location.trim() !== publicProfile.location && { location: pub.location.trim() }),
+      ...(pub.about.trim() !== publicProfile.about && { about: pub.about.trim() }),
+      ...(activities.join('|') !== publicProfile.activities.join('|') && { activities }),
+    };
+    if (!Object.keys(cambios).length) { setPubError('No hay cambios respecto a tu perfil actual.'); return; }
+    addProfileRequest(cambios, pub.justificacion || 'Actualización del perfil público.');
+    setPubOpen(false);
+  };
 
   const current: Record<ChangeField, string> = {
     direccionNegocio: profile.direccionNegocio,
@@ -113,6 +152,39 @@ export const SellerProfilePage = () => {
             <Button className="mt-3 w-full" onClick={openModal}>Solicitar cambio de información</Button>
           </Card>
 
+          {publicProfile && (
+            <Card className="p-5 sm:p-6">
+              <SectionTitle
+                action={<Button size="sm" onClick={openPublic} disabled={!!pendingPublic}><Pencil className="h-4 w-4" /> Editar</Button>}
+              >
+                Perfil público
+              </SectionTitle>
+              <p className="-mt-1 mb-4 flex items-center gap-1.5 text-xs text-[#2F3A2F]/55">
+                <Globe className="h-3.5 w-3.5" /> Es lo que ve el comprador en “{publicProfile.legend}”. Los cambios los aprueba el administrador.
+              </p>
+              {pendingPublic && (
+                <p className="mb-4 flex items-start gap-2 rounded-2xl bg-[#F8EBC2]/70 p-3.5 text-xs leading-relaxed text-[#6B5410]">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0" /> Tienes una solicitud en revisión desde el {prettyStamp(pendingPublic.fechaCreacion)}. Hasta que se apruebe, los compradores ven tu perfil anterior.
+                </p>
+              )}
+              {!pendingPublic && lastPublic && (
+                <p className={`mb-4 rounded-2xl p-3.5 text-xs leading-relaxed ${lastPublic.estado === 'APROBADA' ? 'bg-[#DCE8D2]/70 text-[#3E5C41]' : 'bg-[#F2D9D0]/70 text-[#7A3322]'}`}>
+                  <b>{lastPublic.estado === 'APROBADA' ? 'Tu último cambio fue aprobado.' : 'Tu último cambio fue rechazado.'}</b>
+                  {lastPublic.respuestaAdmin && <> Administrador: {lastPublic.respuestaAdmin}</>}
+                </p>
+              )}
+              <p className="text-lg font-extrabold leading-tight text-[#2F3A2F]">{publicProfile.name}</p>
+              <p className="text-sm font-medium text-[#4F6F52]">{publicProfile.tagline}</p>
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[#2F3A2F]/60"><MapPin className="h-3.5 w-3.5 text-[#86A789]" /> {publicProfile.location}</p>
+              <p className="mt-3 text-sm leading-relaxed text-[#2F3A2F]/75">{publicProfile.about}</p>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {publicProfile.activities.map((a) => (
+                  <li key={a} className="rounded-full bg-[#DCE8D2]/60 px-3 py-1 text-xs font-semibold text-[#3E5C41]">{a}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           <Card className="p-5 sm:p-6">
             <SectionTitle>Mis solicitudes de cambio</SectionTitle>
             {changeRequests.length ? (
@@ -187,6 +259,39 @@ export const SellerProfilePage = () => {
           </Card>
         </div>
       </div>
+
+      {pubOpen && publicProfile && (
+        <Modal
+          wide
+          onClose={() => setPubOpen(false)}
+          title="Editar perfil público"
+          subtitle="El administrador revisará los cambios antes de mostrarlos a los compradores."
+          footer={(
+            <>
+              <Button variant="secondary" onClick={() => setPubOpen(false)}>Cancelar</Button>
+              <Button type="submit" form="public-form">Enviar para aprobación</Button>
+            </>
+          )}
+        >
+          <form id="public-form" noValidate onSubmit={submitPublic} className="space-y-4 pb-3">
+            <Field label="Lema o frase corta">
+              <input value={pub.tagline} onChange={(e) => { setPub({ ...pub, tagline: e.target.value }); setPubError(''); }} className={inputCls} />
+            </Field>
+            <Field label="Ubicación" icon={MapPin}>
+              <input value={pub.location} onChange={(e) => { setPub({ ...pub, location: e.target.value }); setPubError(''); }} className={inputCls} />
+            </Field>
+            <Field label="Quiénes somos">
+              <textarea rows={4} value={pub.about} onChange={(e) => { setPub({ ...pub, about: e.target.value }); setPubError(''); }} className={`${inputCls} resize-none`} />
+            </Field>
+            <Field label="A qué nos dedicamos" hint="Una actividad por línea.">
+              <textarea rows={4} value={pub.activities} onChange={(e) => { setPub({ ...pub, activities: e.target.value }); setPubError(''); }} className={`${inputCls} resize-none`} />
+            </Field>
+            <Field label="Motivo del cambio (opcional)" error={pubError || undefined}>
+              <input value={pub.justificacion} onChange={(e) => setPub({ ...pub, justificacion: e.target.value })} placeholder="Ej: nuevo servicio, cambio de ubicación…" className={inputCls} />
+            </Field>
+          </form>
+        </Modal>
+      )}
 
       {modalOpen && (
         <Modal

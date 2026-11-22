@@ -5,8 +5,8 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { isLowStock, useSeller } from './sellerContext';
-import { Card, EmptyState, LinkButton, Pill, SectionTitle, StatCard } from './ui';
-import { ORDER_STATUS, daysFromNow, dateKey, daysUntil, money, prettyStamp, weekdayShort } from './utils';
+import { Card, EmptyState, LinkButton, Pill, SectionTitle, StatCard } from '../../components/ui';
+import { ORDER_STATUS, daysFromNow, dateKey, daysUntil, money, prettyStamp, weekdayShort } from '../../components/utils';
 
 interface Alert { icon: LucideIcon; text: string; to: string; tone: 'red' | 'amber' }
 

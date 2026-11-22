@@ -1,8 +1,8 @@
 import { Clock } from 'lucide-react';
 import { useSeller } from './sellerContext';
 import type { SellerSettings } from './sellerData';
-import { Card, Field, PageHeading, Switch } from './ui';
-import { inputCls } from './utils';
+import { Card, Field, PageHeading, Switch } from '../../components/ui';
+import { inputCls } from '../../components/utils';
 
 type ToggleKey = 'nuevosPedidos' | 'stockBajo' | 'historias' | 'resumenSemanal';
 
