@@ -1,558 +1,397 @@
 import { useState } from 'react';
-import type { Producto, TipoItem, EstadoProducto, ModalidadServicio } from '../../types';
+import type { ChangeEvent, FormEvent } from 'react';
+import {
+  AlertTriangle, CalendarClock, EyeOff, Eye, ImagePlus, LayoutGrid, Minus, Package, Pencil, Plus,
+  Search, Trash2, Wrench, X,
+} from 'lucide-react';
+import type { EstadoProducto, ModalidadServicio, Producto, TipoItem } from '../../types';
+import { EMPTY_PRODUCT_FORM } from './sellerData';
+import type { ProductForm } from './sellerData';
+import { isLowStock, useSeller } from './sellerContext';
+import { Button, Card, Chip, ConfirmModal, EmptyState, Field, Modal, PageHeading, Pill, ProductThumb } from './ui';
+import { ITEM_TYPE, PRODUCT_STATUS, dateKey, daysUntil, inputCls, money } from './utils';
 
-const INITIAL_PRODUCTS: Producto[] = [
-  {
-    id: 'PROD-001',
-    tiendaId: 'store-1',
-    categoriaId: 'cat-alimentos',
-    categoriaNombre: 'Alimentos',
-    nombre: 'Miel Artesanal 500g',
-    descripcion: 'Miel 100% natural de flores silvestres recolectada localmente.',
-    precio: 10.00,
-    stock: 25,
-    unidadMedida: 'frasco',
-    tipo: 'PERECIBLE',
-    estado: 'PUBLICADO',
-    fechaCaducidad: '2027-12-31',
-    condicionesAlmacenamiento: 'Lugar fresco y seco',
-    imagenUrl: 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?w=200&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'PROD-002',
-    tiendaId: 'store-1',
-    categoriaId: 'cat-lacteos',
-    categoriaNombre: 'Lácteos',
-    nombre: 'Queso Andino Madurado',
-    descripcion: 'Queso artesanal elaborado con leche fresca de granja.',
-    precio: 15.50,
-    stock: 8,
-    unidadMedida: 'kg',
-    tipo: 'PERECIBLE',
-    estado: 'PUBLICADO',
-    fechaCaducidad: '2026-11-15',
-    condicionesAlmacenamiento: 'Refrigerado a 4°C',
-    imagenUrl: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'PROD-003',
-    tiendaId: 'store-1',
-    categoriaId: 'cat-servicios',
-    categoriaNombre: 'Servicios',
-    nombre: 'Asesoría en Huertos Urbanos',
-    descripcion: 'Mantenimiento e instalación de cultivos orgánicos en casa.',
-    precio: 25.00,
-    tipo: 'SERVICIO',
-    estado: 'PENDIENTE_REVISION',
-    duracionServicio: '2 Horas',
-    modalidadServicio: 'A_DOMICILIO',
-    cuposDiarios: 3,
-    imagenUrl: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=200&auto=format&fit=crop&q=80',
-  },
+type TypeFilter = 'TODOS' | TipoItem;
+type StatusFilter = 'TODOS' | 'PUBLICADOS' | 'EN_REVISION' | 'BORRADORES' | 'RECHAZADOS' | 'PAUSADOS';
+
+const TYPE_FILTERS: { id: TypeFilter; label: string; icon: typeof Package }[] = [
+  { id: 'TODOS', label: 'Todo', icon: LayoutGrid },
+  { id: 'PERECIBLE', label: 'Perecibles', icon: Package },
+  { id: 'NO_PERECIBLE', label: 'No perecibles', icon: Package },
+  { id: 'SERVICIO', label: 'Servicios', icon: Wrench },
 ];
 
-const EMPTY_PRODUCT_FORM = {
-  nombre: '',
-  descripcion: '',
-  precio: 0,
-  categoriaNombre: 'General',
-  tipo: 'NO_PERECIBLE' as TipoItem,
-  unidadMedida: 'unidad',
-  stock: 0,
-  fechaCaducidad: '',
-  condicionesAlmacenamiento: '',
-  duracionServicio: '',
-  modalidadServicio: 'PRESENCIAL' as ModalidadServicio,
-  cuposDiarios: 1,
-  imagenUrl: '',
+const STATUS_FILTERS: { id: StatusFilter; label: string; match: EstadoProducto[] }[] = [
+  { id: 'TODOS', label: 'Todos', match: [] },
+  { id: 'PUBLICADOS', label: 'Publicados', match: ['PUBLICADO'] },
+  { id: 'EN_REVISION', label: 'En revisión', match: ['PENDIENTE_REVISION'] },
+  { id: 'BORRADORES', label: 'Borradores', match: ['BORRADOR'] },
+  { id: 'RECHAZADOS', label: 'Rechazados', match: ['RECHAZADO'] },
+  { id: 'PAUSADOS', label: 'Pausados / agotados', match: ['DESACTIVADO', 'AGOTADO'] },
+];
+
+const UNITS = ['unidad', 'kg', 'libra', 'litro', 'frasco', 'atado', 'canasta', 'docena'];
+const CATEGORY_HINTS = ['Alimentos', 'Lácteos', 'Hortalizas', 'Frutas', 'Bebidas', 'Artesanías', 'Servicios'];
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
+const typeBtn = (active: boolean) =>
+  `rounded-2xl px-3 py-2.5 text-sm font-semibold transition ${active ? 'bg-[#4F6F52] text-[#F7F3E8] shadow-md' : 'bg-white text-[#2F3A2F] ring-1 ring-black/10 hover:ring-[#4F6F52]/50'}`;
+
+const toForm = (p: Producto): ProductForm => ({
+  nombre: p.nombre,
+  descripcion: p.descripcion,
+  precio: p.precio,
+  categoriaNombre: p.categoriaNombre ?? '',
+  tipo: p.tipo,
+  unidadMedida: p.unidadMedida ?? 'unidad',
+  stock: p.stock ?? 0,
+  fechaCaducidad: p.fechaCaducidad ?? '',
+  condicionesAlmacenamiento: p.condicionesAlmacenamiento ?? '',
+  duracionServicio: p.duracionServicio ?? '',
+  modalidadServicio: p.modalidadServicio ?? 'PRESENCIAL',
+  cuposDiarios: p.cuposDiarios ?? 1,
+  imagenUrl: p.imagenUrl,
+});
+
+type Errors = Partial<Record<keyof ProductForm, string>>;
+
+const validate = (f: ProductForm, asDraft: boolean): Errors => {
+  const e: Errors = {};
+  if (f.nombre.trim().length < 3) e.nombre = 'Escribe un nombre de al menos 3 caracteres.';
+  if (asDraft) return e;
+  if (f.descripcion.trim().length < 10) e.descripcion = 'Describe el producto en al menos 10 caracteres.';
+  if (!(f.precio > 0)) e.precio = 'El precio debe ser mayor a $0.';
+  if (f.tipo === 'PERECIBLE') {
+    if (!f.fechaCaducidad) e.fechaCaducidad = 'Indica la fecha de caducidad.';
+    else if (daysUntil(f.fechaCaducidad) < 0) e.fechaCaducidad = 'La fecha ya pasó.';
+  }
+  if (f.tipo === 'SERVICIO' && !f.duracionServicio.trim()) e.duracionServicio = 'Indica la duración estimada.';
+  return e;
 };
 
 export const SellerProductsPage = () => {
-  const [products, setProducts] = useState<Producto[]>(INITIAL_PRODUCTS);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const { products, plan, settings, saveProduct, deleteProduct, togglePublished, adjustStock, notify } = useSeller();
 
-  const [formData, setFormData] = useState(EMPTY_PRODUCT_FORM);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('TODOS');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('TODOS');
+  const [query, setQuery] = useState('');
 
-  // Abrir modal en modo Creación
-  const handleOpenCreateModal = () => {
-    setEditingProductId(null);
-    setFormData(EMPTY_PRODUCT_FORM);
-    setIsModalOpen(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
+  const [errors, setErrors] = useState<Errors>({});
+  const [toDelete, setToDelete] = useState<Producto | null>(null);
+
+  const set = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setErrors((e) => ({ ...e, [key]: undefined }));
   };
 
-  // Abrir modal en modo Edición
-  const handleOpenEditModal = (product: Producto) => {
-    setEditingProductId(product.id);
-    setFormData({
-      nombre: product.nombre,
-      descripcion: product.descripcion,
-      precio: product.precio,
-      categoriaNombre: product.categoriaNombre || 'General',
-      tipo: product.tipo,
-      unidadMedida: product.unidadMedida || 'unidad',
-      stock: product.stock ?? 0,
-      fechaCaducidad: product.fechaCaducidad ?? '',
-      condicionesAlmacenamiento: product.condicionesAlmacenamiento ?? '',
-      duracionServicio: product.duracionServicio ?? '',
-      modalidadServicio: product.modalidadServicio ?? 'PRESENCIAL',
-      cuposDiarios: product.cuposDiarios ?? 1,
-      imagenUrl: product.imagenUrl,
-    });
-    setIsModalOpen(true);
-  };
+  const atLimit = products.length >= plan.limiteProductos;
+  const editing = editingId ? products.find((p) => p.id === editingId) : undefined;
 
-  // Eliminar producto
-  const handleDeleteProduct = (productId: string, name: string) => {
-    if (confirm(`¿Estás seguro de eliminar el producto "${name}"?`)) {
-      setProducts((prev) => prev.filter((p) => p.id !== productId));
-    }
-  };
-
-  // Guardar (Crear o Editar)
-  const handleSaveProduct = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.nombre.trim() || formData.precio <= 0) {
-      alert('Por favor ingresa un nombre y un precio válido.');
+  const openCreate = () => {
+    if (atLimit) {
+      notify(`Llegaste al límite de tu plan (${plan.limiteProductos} publicaciones).`, 'error');
       return;
     }
-
-    if (editingProductId) {
-      // Actualizar existente
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === editingProductId
-            ? {
-                ...p,
-                ...formData,
-                estado: 'PENDIENTE_REVISION' as EstadoProducto, // Al editar, requiere revisión de nuevo
-              }
-            : p
-        )
-      );
-    } else {
-      // Crear nuevo
-      const newProductItem: Producto = {
-        id: `PROD-${Date.now()}`,
-        tiendaId: 'store-1',
-        categoriaId: 'cat-general',
-        ...formData,
-        estado: 'PENDIENTE_REVISION' as EstadoProducto,
-        imagenUrl: formData.imagenUrl || 'https://via.placeholder.com/150',
-      };
-      setProducts((prev) => [newProductItem, ...prev]);
-    }
-
-    setIsModalOpen(false);
-    setFormData(EMPTY_PRODUCT_FORM);
+    setEditingId(null);
+    setForm(EMPTY_PRODUCT_FORM);
+    setErrors({});
+    setFormOpen(true);
   };
 
+  const openEdit = (p: Producto) => {
+    setEditingId(p.id);
+    setForm(toForm(p));
+    setErrors({});
+    setFormOpen(true);
+  };
+
+  const submit = (asDraft: boolean) => {
+    const found = validate(form, asDraft);
+    setErrors(found);
+    if (Object.keys(found).length) return;
+    if (saveProduct(form, editingId, asDraft)) setFormOpen(false);
+  };
+
+  const onImageFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { notify('Selecciona un archivo de imagen.', 'error'); return; }
+    if (file.size > MAX_IMAGE_BYTES) { notify('La imagen supera los 2 MB. Elige una más liviana.', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = () => set('imagenUrl', String(reader.result));
+    reader.readAsDataURL(file);
+  };
+
+  const q = query.trim().toLowerCase();
+  const statusMatch = STATUS_FILTERS.find((s) => s.id === statusFilter)!.match;
+  const byType = products.filter((p) => typeFilter === 'TODOS' || p.tipo === typeFilter);
+  const list = byType
+    .filter((p) => statusFilter === 'TODOS' || statusMatch.includes(p.estado))
+    .filter((p) => !q || `${p.nombre} ${p.categoriaNombre ?? ''}`.toLowerCase().includes(q));
+  const statusCount = (s: (typeof STATUS_FILTERS)[number]) => (s.id === 'TODOS' ? byType.length : byType.filter((p) => s.match.includes(p.estado)).length);
+
+  const physical = form.tipo !== 'SERVICIO';
+
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Encabezado */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-teal-900">Mis Productos y Servicios</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Administra tu catálogo de productos perecibles, no perecibles y servicios disponibles.
-          </p>
+    <div className="space-y-5">
+      <PageHeading
+        title="Productos y servicios"
+        subtitle={`${products.length} de ${plan.limiteProductos} publicaciones de tu ${plan.nombre}. Los cambios pasan por revisión antes de mostrarse.`}
+        action={<Button onClick={openCreate}><Plus className="h-5 w-5" /> Nuevo producto o servicio</Button>}
+      />
+
+      <div>
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0">
+          {TYPE_FILTERS.map((t) => (
+            <Chip key={t.id} active={typeFilter === t.id} onClick={() => setTypeFilter(t.id)}>
+              <t.icon className="h-4 w-4" /> {t.label}
+            </Chip>
+          ))}
         </div>
-        <button
-          onClick={handleOpenCreateModal}
-          className="inline-flex items-center justify-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
-        >
-          + Nuevo Producto / Servicio
-        </button>
+        <div className="-mx-4 mt-2.5 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:rounded-2xl sm:bg-white/60 sm:p-2.5">
+          {STATUS_FILTERS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setStatusFilter(s.id)}
+              aria-pressed={statusFilter === s.id}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition ${statusFilter === s.id ? 'bg-[#4F6F52] text-[#F7F3E8]' : 'bg-[#DCE8D2]/60 text-[#3E5C41] hover:bg-[#DCE8D2]'}`}
+            >
+              {s.label} <span className="opacity-70">· {statusCount(s)}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Tabla de Productos */}
-      <div className="overflow-x-auto bg-white shadow-sm border border-gray-200 rounded-xl">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-stone-100/80 border-b border-gray-200 text-teal-950 font-semibold text-sm">
-              <th className="p-4">Imagen</th>
-              <th className="p-4">Producto / Servicio</th>
-              <th className="p-4">Tipo</th>
-              <th className="p-4">Estado Moderación</th>
-              <th className="p-4">Precio</th>
-              <th className="p-4 text-center">Disponibilidad</th>
-              <th className="p-4 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 text-sm">
-            {products.map((prod) => (
-              <tr key={prod.id} className="hover:bg-stone-50/60 transition-colors">
-                <td className="p-4">
-                  <img
-                    src={prod.imagenUrl}
-                    alt={prod.nombre}
-                    className="w-12 h-12 rounded-lg object-cover border border-gray-200 shadow-xs"
-                  />
-                </td>
-                <td className="p-4 max-w-xs">
-                  <div className="font-semibold text-gray-900">{prod.nombre}</div>
-                  <div className="text-xs text-gray-500 line-clamp-1">{prod.descripcion}</div>
-                  <span className="inline-block mt-1 text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md font-medium border border-stone-200">
-                    {prod.categoriaNombre || 'General'}
-                  </span>
-                </td>
-                <td className="p-4">
-                  <span
-                    className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-md border ${
-                      prod.tipo === 'PERECIBLE'
-                        ? 'bg-amber-50 text-amber-900 border-amber-200'
-                        : prod.tipo === 'SERVICIO'
-                        ? 'bg-sky-50 text-sky-900 border-sky-200'
-                        : 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                    }`}
-                  >
-                    {prod.tipo}
-                  </span>
-                </td>
-                <td className="p-4">
-                  <span
-                    className={`inline-block px-2.5 py-0.5 text-[11px] font-medium rounded-full ${
-                      prod.estado === 'PUBLICADO'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : prod.estado === 'PENDIENTE_REVISION'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    {prod.estado}
-                  </span>
-                </td>
-                <td className="p-4 font-semibold text-gray-900">
-                  ${prod.precio.toFixed(2)}
-                  {prod.unidadMedida && (
-                    <span className="text-xs font-normal text-gray-500"> / {prod.unidadMedida}</span>
+      <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-[#2F3A2F]/10 focus-within:ring-2 focus-within:ring-[#4F6F52] sm:max-w-md">
+        <Search className="h-5 w-5 shrink-0 text-[#86A789]" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Busca por nombre o categoría…" aria-label="Buscar productos" className={inputCls} />
+        {query && <button onClick={() => setQuery('')} aria-label="Limpiar búsqueda"><X className="h-4 w-4 text-[#2F3A2F]/50" /></button>}
+      </div>
+
+      {list.length ? (
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+          {list.map((p) => {
+            const st = PRODUCT_STATUS[p.estado];
+            const type = ITEM_TYPE[p.tipo];
+            const days = p.fechaCaducidad ? daysUntil(p.fechaCaducidad) : null;
+            const live = p.estado === 'PUBLICADO' || p.estado === 'AGOTADO';
+            const low = isLowStock(p, settings.stockMinimo);
+            return (
+              <Card key={p.id} className="flex flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
+                <div className="relative h-40">
+                  <ProductThumb key={p.imagenUrl} src={p.imagenUrl} name={p.nombre} tipo={p.tipo} className="h-full w-full" />
+                  <span className="absolute left-2.5 top-2.5"><Pill tone={type.tone} className="shadow-sm">{type.label}</Pill></span>
+                  <span className="absolute right-2.5 top-2.5"><Pill tone={st.tone} className="shadow-sm">{st.label}</Pill></span>
+                </div>
+
+                <div className="flex flex-1 flex-col p-4">
+                  <h3 className="line-clamp-2 min-h-[2.5rem] text-[15px] font-bold leading-snug text-[#2F3A2F]">{p.nombre}</h3>
+                  <p className="mt-0.5 text-xs font-medium text-[#4F6F52]">{p.categoriaNombre || 'General'}</p>
+                  <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#2F3A2F]/60">{p.descripcion}</p>
+
+                  {p.estado === 'RECHAZADO' && p.motivoRechazo && (
+                    <p className="mt-3 flex gap-2 rounded-2xl bg-[#F2D9D0]/70 p-3 text-xs leading-snug text-[#7A3322]">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {p.motivoRechazo}
+                    </p>
                   )}
-                </td>
-                <td className="p-4 text-center">
-                  {prod.tipo === 'SERVICIO' ? (
-                    <span className="inline-block px-2.5 py-1 text-xs bg-stone-100 text-stone-700 font-medium rounded-lg border border-stone-200">
-                      {prod.cuposDiarios} cupos/día
-                    </span>
-                  ) : (
-                    <span
-                      className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-lg ${
-                        (prod.stock ?? 0) > 0
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}
-                    >
-                      {prod.stock} {prod.unidadMedida || 'u.'}
-                    </span>
+                  {days !== null && days <= 7 && p.estado !== 'RECHAZADO' && (
+                    <p className={`mt-3 flex items-center gap-2 rounded-2xl p-2.5 text-xs font-semibold ${days <= 2 ? 'bg-[#F2D9D0]/70 text-[#7A3322]' : 'bg-[#F8EBC2]/70 text-[#6B5410]'}`}>
+                      <CalendarClock className="h-4 w-4 shrink-0" />
+                      {days < 0 ? 'Vencido' : days === 0 ? 'Vence hoy' : `Vence en ${days} día${days === 1 ? '' : 's'}`}
+                    </p>
                   )}
-                </td>
-                <td className="p-4 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => handleOpenEditModal(prod)}
-                      className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-teal-900 font-medium rounded-lg text-xs transition-colors border border-stone-300"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProduct(prod.id, prod.nombre)}
-                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium rounded-lg text-xs transition-colors border border-rose-200"
-                    >
-                      Eliminar
-                    </button>
+
+                  <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+                    <span className="text-lg font-extrabold text-[#4F6F52]">
+                      {money(p.precio)}
+                      {p.unidadMedida && <span className="text-[11px] font-medium text-[#2F3A2F]/45"> / {p.unidadMedida}</span>}
+                    </span>
+
+                    {p.tipo === 'SERVICIO' ? (
+                      <Pill tone="blue">{p.cuposDiarios ?? 1} cupos/día</Pill>
+                    ) : (
+                      <div className="flex items-center gap-1.5" role="group" aria-label={`Stock de ${p.nombre}`}>
+                        <button
+                          onClick={() => adjustStock(p.id, -1)}
+                          disabled={(p.stock ?? 0) === 0}
+                          aria-label="Restar una unidad"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F7F3E8] text-[#2F3A2F] ring-1 ring-black/10 transition active:scale-90 disabled:opacity-40"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className={`min-w-[2.5rem] text-center text-sm font-extrabold ${low ? 'text-[#B4533C]' : 'text-[#2F3A2F]'}`}>
+                          {p.stock ?? 0}
+                        </span>
+                        <button
+                          onClick={() => adjustStock(p.id, 1)}
+                          aria-label="Sumar una unidad"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4F6F52] text-[#F7F3E8] transition active:scale-90"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  {p.tipo !== 'SERVICIO' && low && <p className="mt-1.5 text-right text-[11px] font-semibold text-[#B4533C]">Stock bajo</p>}
 
-      {/* Modal Crear / Editar Producto */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 space-y-5 border border-gray-100 my-8">
-            <div className="border-b border-gray-100 pb-3">
-              <h3 className="text-lg font-bold text-teal-900">
-                {editingProductId ? 'Editar Registro' : 'Agregar Nuevo Registro'}
-              </h3>
-              <p className="text-xs text-gray-500">
-                Los cambios pasarán por proceso de moderación administrativa antes de ser visibles.
-              </p>
+                  <div className="mt-4 flex items-center gap-2 border-t border-[#2F3A2F]/10 pt-3">
+                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /> Editar</Button>
+                    {(live || p.estado === 'DESACTIVADO') && (
+                      <Button variant="secondary" size="sm" onClick={() => togglePublished(p.id)} aria-label={live ? 'Pausar publicación' : 'Reactivar publicación'} title={live ? 'Pausar' : 'Reactivar'}>
+                        {live ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    )}
+                    <Button variant="danger" size="sm" onClick={() => setToDelete(p)} aria-label={`Eliminar ${p.nombre}`}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyState
+          icon={Package}
+          title={q || typeFilter !== 'TODOS' || statusFilter !== 'TODOS' ? 'No hay resultados con estos filtros' : 'Aún no tienes publicaciones'}
+          text="Publica tu primer producto o servicio para empezar a vender."
+          action={<Button onClick={openCreate}><Plus className="h-5 w-5" /> Nuevo producto o servicio</Button>}
+        />
+      )}
+
+      {formOpen && (
+        <Modal
+          wide
+          onClose={() => setFormOpen(false)}
+          title={editing ? 'Editar publicación' : 'Nueva publicación'}
+          subtitle={editing?.estado === 'PUBLICADO'
+            ? 'Al guardar, volverá a revisión y se pausará hasta que el administrador la apruebe.'
+            : 'El administrador la revisará antes de mostrarla a los compradores.'}
+          footer={(
+            <>
+              <Button variant="secondary" onClick={() => setFormOpen(false)}>Cancelar</Button>
+              <Button variant="secondary" onClick={() => submit(true)}>Guardar borrador</Button>
+              <Button type="submit" form="product-form">{editing ? 'Guardar y enviar a revisión' : 'Enviar a revisión'}</Button>
+            </>
+          )}
+        >
+          <form
+            id="product-form"
+            noValidate
+            onSubmit={(e: FormEvent) => { e.preventDefault(); submit(false); }}
+            className="space-y-4 pb-3"
+          >
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[#6B7A6B]">Tipo de publicación</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {(['PERECIBLE', 'NO_PERECIBLE', 'SERVICIO'] as TipoItem[]).map((t) => (
+                  <button key={t} type="button" aria-pressed={form.tipo === t} onClick={() => set('tipo', t)} className={typeBtn(form.tipo === t)}>
+                    {ITEM_TYPE[t].label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
-              {/* Selector Tipo de Registro */}
-              <div className="space-y-1.5">
-                <label className="font-semibold text-gray-800">Tipo de Registro</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <label
-                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer font-medium transition-all ${
-                      formData.tipo === 'PERECIBLE'
-                        ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs'
-                        : 'border-gray-200 bg-stone-50 text-gray-600 hover:bg-stone-100'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="itemType"
-                      value="PERECIBLE"
-                      checked={formData.tipo === 'PERECIBLE'}
-                      onChange={() => setFormData({ ...formData, tipo: 'PERECIBLE' })}
-                      className="hidden"
-                    />
-                    Perecible
-                  </label>
+            <Field label="Nombre" error={errors.nombre}>
+              <input value={form.nombre} onChange={(e) => set('nombre', e.target.value)} placeholder="Ej: Miel de abeja 500g" className={inputCls} />
+            </Field>
 
-                  <label
-                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer font-medium transition-all ${
-                      formData.tipo === 'NO_PERECIBLE'
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-xs'
-                        : 'border-gray-200 bg-stone-50 text-gray-600 hover:bg-stone-100'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="itemType"
-                      value="NO_PERECIBLE"
-                      checked={formData.tipo === 'NO_PERECIBLE'}
-                      onChange={() => setFormData({ ...formData, tipo: 'NO_PERECIBLE' })}
-                      className="hidden"
-                    />
-                    No Perecible
-                  </label>
+            <Field label="Descripción" error={errors.descripcion}>
+              <textarea rows={3} value={form.descripcion} onChange={(e) => set('descripcion', e.target.value)} placeholder="Cuéntales a tus compradores qué ofreces…" className={`${inputCls} resize-none`} />
+            </Field>
 
-                  <label
-                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer font-medium transition-all ${
-                      formData.tipo === 'SERVICIO'
-                        ? 'border-sky-500 bg-sky-50 text-sky-900 shadow-xs'
-                        : 'border-gray-200 bg-stone-50 text-gray-600 hover:bg-stone-100'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="itemType"
-                      value={"SERVICIO"}
-                      checked={formData.tipo === 'SERVICIO'}
-                      onChange={() => setFormData({ ...formData, tipo: 'SERVICIO' })}
-                      className="hidden"
-                    />
-                    Servicio
-                  </label>
-                </div>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Precio ($)" error={errors.precio}>
+                <input type="number" inputMode="decimal" step="0.01" min="0" value={form.precio || ''} onChange={(e) => set('precio', parseFloat(e.target.value) || 0)} className={inputCls} />
+              </Field>
+              <Field label="Categoría">
+                <input list="seller-categories" value={form.categoriaNombre} onChange={(e) => set('categoriaNombre', e.target.value)} placeholder="Ej: Lácteos" className={inputCls} />
+                <datalist id="seller-categories">{CATEGORY_HINTS.map((c) => <option key={c} value={c} />)}</datalist>
+              </Field>
+              {physical && (
+                <Field label="Unidad de medida">
+                  <input list="seller-units" value={form.unidadMedida} onChange={(e) => set('unidadMedida', e.target.value)} className={inputCls} />
+                  <datalist id="seller-units">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
+                </Field>
+              )}
+            </div>
 
-              {/* Nombre */}
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">Nombre del Producto / Servicio</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  placeholder="Ej: Miel de Abeja 500g o Servicio de Corte"
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
-                />
-              </div>
-
-              {/* Descripción */}
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">Descripción</label>
-                <textarea
-                  rows={2}
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  placeholder="Detalles del producto o servicio..."
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none resize-none"
-                />
-              </div>
-
-              {/* Precio, Categoría y Unidad de Medida */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-gray-800">Precio ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={formData.precio || ''}
-                    onChange={(e) =>
-                      setFormData({ ...formData, precio: parseFloat(e.target.value) || 0 })
-                    }
-                    className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-gray-800">Categoría</label>
-                  <input
-                    type="text"
-                    value={formData.categoriaNombre}
-                    onChange={(e) => setFormData({ ...formData, categoriaNombre: e.target.value })}
-                    placeholder="Ej: Lácteos, Mantenimiento..."
-                    className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
-                  />
-                </div>
-
-                {formData.tipo !== 'SERVICIO' && (
-                  <div className="space-y-1">
-                    <label className="font-semibold text-gray-800">Unidad de Medida</label>
-                    <input
-                      type="text"
-                      value={formData.unidadMedida}
-                      onChange={(e) => setFormData({ ...formData, unidadMedida: e.target.value })}
-                      placeholder="Ej: kg, libra, frasco, unidad"
-                      className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
-                    />
-                  </div>
+            {physical && (
+              <div className={`grid gap-4 ${form.tipo === 'PERECIBLE' ? 'sm:grid-cols-2' : 'sm:max-w-[calc(50%-0.5rem)]'}`}>
+                <Field label="Stock disponible">
+                  <input type="number" inputMode="numeric" min="0" value={form.stock || ''} onChange={(e) => set('stock', parseInt(e.target.value, 10) || 0)} placeholder="0" className={inputCls} />
+                </Field>
+                {form.tipo === 'PERECIBLE' && (
+                  <Field label="Fecha de caducidad" error={errors.fechaCaducidad}>
+                    <input type="date" min={dateKey(new Date())} value={form.fechaCaducidad} onChange={(e) => set('fechaCaducidad', e.target.value)} className={inputCls} />
+                  </Field>
                 )}
               </div>
+            )}
 
-              {/* Campos Dinámicos según el Tipo */}
-              {formData.tipo === 'PERECIBLE' && (
-                <div className="bg-amber-50/60 p-4 rounded-xl border border-amber-200/80 space-y-3">
-                  <p className="font-bold text-amber-900 uppercase tracking-wider text-[11px]">
-                    Detalles de Producto Perecible
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-800">Stock Disponible</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.stock || ''}
-                        onChange={(e) =>
-                          setFormData({ ...formData, stock: parseInt(e.target.value, 10) || 0 })
-                        }
-                        className="w-full p-2.5 bg-white border border-amber-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-600 outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-800">Fecha de Caducidad</label>
-                      <input
-                        type="date"
-                        value={formData.fechaCaducidad}
-                        onChange={(e) => setFormData({ ...formData, fechaCaducidad: e.target.value })}
-                        className="w-full p-2.5 bg-white border border-amber-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-600 outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-semibold text-gray-800">Requisitos de Conservación</label>
-                    <input
-                      type="text"
-                      value={formData.condicionesAlmacenamiento}
-                      onChange={(e) => setFormData({ ...formData, condicionesAlmacenamiento: e.target.value })}
-                      placeholder="Ej: Refrigerado a 4°C, Mantener alejado del sol..."
-                      className="w-full p-2.5 bg-white border border-amber-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-600 outline-none"
-                    />
-                  </div>
-                </div>
-              )}
+            {form.tipo === 'PERECIBLE' && (
+              <Field label="Condiciones de conservación" hint="Ej: refrigerado a 4 °C, lejos de la luz del sol.">
+                <input value={form.condicionesAlmacenamiento} onChange={(e) => set('condicionesAlmacenamiento', e.target.value)} className={inputCls} />
+              </Field>
+            )}
 
-              {formData.tipo === 'NO_PERECIBLE' && (
-                <div className="bg-emerald-50/60 p-4 rounded-xl border border-emerald-200/80 space-y-3">
-                  <p className="font-bold text-emerald-900 uppercase tracking-wider text-[11px]">
-                    Detalles de Producto No Perecible
-                  </p>
-                  <div className="space-y-1 max-w-xs">
-                    <label className="font-semibold text-gray-800">Stock Disponible</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.stock || ''}
-                      onChange={(e) =>
-                        setFormData({ ...formData, stock: parseInt(e.target.value, 10) || 0 })
-                      }
-                      className="w-full p-2.5 bg-white border border-emerald-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-600 outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {formData.tipo === 'SERVICIO' && (
-                <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200/80 space-y-3">
-                  <p className="font-bold text-sky-900 uppercase tracking-wider text-[11px]">
-                    Detalles del Servicio
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-800">Duración Estimada</label>
-                      <input
-                        type="text"
-                        value={formData.duracionServicio}
-                        onChange={(e) => setFormData({ ...formData, duracionServicio: e.target.value })}
-                        placeholder="Ej: 1 Hora, 45 min"
-                        className="w-full p-2.5 bg-white border border-sky-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-800">Modalidad</label>
-                      <select
-                        value={formData.modalidadServicio}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            modalidadServicio: e.target.value as ModalidadServicio,
-                          })
-                        }
-                        className="w-full p-2.5 bg-white border border-sky-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 outline-none"
-                      >
-                        <option value="PRESENCIAL">Presencial (En local)</option>
-                        <option value="A_DOMICILIO">A domicilio</option>
-                        <option value="VIRTUAL">Virtual / En línea</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-800">Cupos / Día</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={formData.cuposDiarios || ''}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            cuposDiarios: parseInt(e.target.value, 10) || 1,
-                          })
-                        }
-                        className="w-full p-2.5 bg-white border border-sky-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Imagen URL */}
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-800">URL de la Imagen</label>
-                <input
-                  type="url"
-                  value={formData.imagenUrl}
-                  onChange={(e) => setFormData({ ...formData, imagenUrl: e.target.value })}
-                  placeholder="https://ejemplo.com/imagen.jpg"
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-700 outline-none"
-                />
+            {form.tipo === 'SERVICIO' && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Duración estimada" error={errors.duracionServicio}>
+                  <input value={form.duracionServicio} onChange={(e) => set('duracionServicio', e.target.value)} placeholder="Ej: 2 horas" className={inputCls} />
+                </Field>
+                <Field label="Modalidad">
+                  <select value={form.modalidadServicio} onChange={(e) => set('modalidadServicio', e.target.value as ModalidadServicio)} className={inputCls}>
+                    <option value="PRESENCIAL">Presencial (en local)</option>
+                    <option value="A_DOMICILIO">A domicilio</option>
+                    <option value="VIRTUAL">Virtual</option>
+                  </select>
+                </Field>
+                <Field label="Cupos por día">
+                  <input type="number" inputMode="numeric" min="1" value={form.cuposDiarios || ''} onChange={(e) => set('cuposDiarios', parseInt(e.target.value, 10) || 1)} className={inputCls} />
+                </Field>
               </div>
+            )}
 
-              {/* Botones Modal */}
-              <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-stone-200 hover:bg-stone-300 text-gray-800 text-xs font-semibold rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
-                >
-                  {editingProductId ? 'Guardar Cambios' : 'Publicar Registro'}
-                </button>
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[#6B7A6B]">Imagen</p>
+              <div className="flex items-center gap-4 rounded-2xl bg-white p-3 ring-1 ring-[#2F3A2F]/10">
+                <ProductThumb key={form.imagenUrl} src={form.imagenUrl} name="Vista previa" tipo={form.tipo} className="h-20 w-20 shrink-0 rounded-2xl" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <input
+                    type="url"
+                    value={form.imagenUrl.startsWith('data:') ? '' : form.imagenUrl}
+                    onChange={(e) => set('imagenUrl', e.target.value)}
+                    placeholder={form.imagenUrl.startsWith('data:') ? 'Imagen cargada desde tu dispositivo' : 'Pega un enlace https://…'}
+                    aria-label="Enlace de la imagen"
+                    className={`${inputCls} rounded-xl bg-[#F7F3E8] px-3 py-2 text-sm`}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#DCE8D2]/70 px-3 py-1.5 text-[13px] font-semibold text-[#3E5C41] transition hover:bg-[#DCE8D2]">
+                      <ImagePlus className="h-4 w-4" /> Subir foto
+                      <input type="file" accept="image/*" onChange={onImageFile} className="sr-only" />
+                    </label>
+                    {form.imagenUrl && (
+                      <button type="button" onClick={() => set('imagenUrl', '')} className="text-[13px] font-semibold text-[#B4533C]">Quitar</button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </form>
-          </div>
-        </div>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {toDelete && (
+        <ConfirmModal
+          title="Eliminar publicación"
+          text={`¿Seguro que quieres eliminar “${toDelete.nombre}”? Esta acción no se puede deshacer. Si solo quieres dejar de venderlo por un tiempo, pausa la publicación.`}
+          confirmLabel="Sí, eliminar"
+          onConfirm={() => deleteProduct(toDelete.id)}
+          onClose={() => setToDelete(null)}
+        />
       )}
     </div>
   );
