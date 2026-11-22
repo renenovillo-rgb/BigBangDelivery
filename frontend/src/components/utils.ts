@@ -1,4 +1,4 @@
-import type { EstadoHistoria, EstadoPedido, EstadoProducto, TipoItem } from '../../types';
+import type { EstadoHistoria, EstadoPedido, EstadoProducto, TipoItem } from '../types';
 
 /* ------------------------------------------------------------------ */
 /*  Utilidades compartidas del panel del vendedor                       */

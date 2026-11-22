@@ -2,7 +2,7 @@ import type {
   EstadoPago, EstadoPedido, ItemPedido, ModalidadServicio, PerfilVendedor, Pedido, PlanSuscripcion,
   Producto, SolicitudActualizacionPerfil, SolicitudHistoriaProducto, SuscripcionVendedor, TipoItem,
 } from '../../types';
-import { IVA, dateKey, daysFromNow, round2, stamp } from './utils';
+import { IVA, dateKey, daysFromNow, round2, stamp } from '../../components/utils';
 
 /* ------------------------------------------------------------------ */
 /*  Datos simulados del vendedor (se reemplazan al conectar la API)     */
@@ -192,13 +192,13 @@ export const EMPTY_PRODUCT_FORM: ProductForm = {
 
 /* -------------------------------- Pedidos -------------------------------- */
 
-const item = (
+export const item = (
   id: string, productoId: string, nombreProducto: string, cantidad: number, precioUnitario: number, unidadMedida: string,
 ): ItemPedido => ({ id, productoId, nombreProducto, cantidad, precioUnitario, subtotal: round2(cantidad * precioUnitario), unidadMedida });
 
-interface Customer { nombre: string; cedula: string; email: string; telefono: string; direccion: string }
+export interface Customer { nombre: string; cedula: string; email: string; telefono: string; direccion: string }
 
-const CUSTOMERS: Record<string, Customer> = {
+export const CUSTOMERS: Record<string, Customer> = {
   juan: { nombre: 'Juan Pérez', cedula: '0102345678', email: 'juan.perez@ejemplo.com', telefono: '0991234567', direccion: 'Calle Larga y Benigno Malo, Cuenca' },
   maria: { nombre: 'María Torres', cedula: '0104567890', email: 'maria.torres@ejemplo.com', telefono: '0987654321', direccion: 'Av. Remigio Crespo 3-45, Cuenca' },
   carlos: { nombre: 'Carlos Andrade', cedula: '0106789012', email: 'carlos.andrade@ejemplo.com', telefono: '0979876543', direccion: 'Gran Colombia y Tarqui, Cuenca' },
@@ -206,10 +206,10 @@ const CUSTOMERS: Record<string, Customer> = {
   pedro: { nombre: 'Pedro Zhunio', cedula: '0103456789', email: 'pedro.zhunio@ejemplo.com', telefono: '0995551234', direccion: 'Sucre y Hermano Miguel, Cuenca' },
 };
 
-const buildOrder = (
+export const buildOrder = (
   n: number, customer: keyof typeof CUSTOMERS, items: ItemPedido[], estadoPedido: EstadoPedido,
   daysAgo: number, hour: number, minute: number,
-  extra: { medioPago?: string; estadoPago?: EstadoPago; costoEnvio?: number; invoiced?: boolean; motivoCancelacion?: string } = {},
+  extra: { medioPago?: string; estadoPago?: EstadoPago; costoEnvio?: number; invoiced?: boolean; motivoCancelacion?: string; tiendaId?: string } = {},
 ): Pedido => {
   const c = CUSTOMERS[customer];
   const subtotal = round2(items.reduce((s, i) => s + i.subtotal, 0));
@@ -219,7 +219,7 @@ const buildOrder = (
   return {
     id: `ORD-${n}`,
     numeroPedido: `ORD-${n}`,
-    tiendaId: 'store-1',
+    tiendaId: extra.tiendaId ?? 'store-1',
     compradorId: `user-${customer}`,
     nombreCliente: c.nombre,
     identificacionCliente: c.cedula,

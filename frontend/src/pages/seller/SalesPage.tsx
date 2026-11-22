@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Download, FileText, Percent, Receipt, Wallet } from 'lucide-react';
 import { useSeller } from './sellerContext';
-import { Button, Card, Chip, EmptyState, PageHeading, Pill, SectionTitle, StatCard } from './ui';
-import { ORDER_STATUS, PAYMENT_LABEL, dateKey, daysFromNow, money, prettyStamp, round2 } from './utils';
+import { Button, Card, Chip, EmptyState, PageHeading, Pill, SectionTitle, StatCard } from '../../components/ui';
+import { ORDER_STATUS, PAYMENT_LABEL, dateKey, daysFromNow, money, prettyStamp, round2 } from '../../components/utils';
 
 // Marca de orden de bytes para que Excel abra bien las tildes
 const BOM = String.fromCharCode(0xfeff);

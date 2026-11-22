@@ -4,10 +4,10 @@ import {
 } from 'lucide-react';
 import type { EstadoPedido, Pedido } from '../../types';
 import { useSeller } from './sellerContext';
-import { Button, Card, Chip, EmptyState, Field, Modal, PageHeading, Pill } from './ui';
+import { Button, Card, Chip, EmptyState, Field, Modal, PageHeading, Pill } from '../../components/ui';
 import {
   NEXT_ORDER_STEP, ORDER_STATUS, ORDER_STEPS, PAYMENT_LABEL, inputCls, money, prettyStamp,
-} from './utils';
+} from '../../components/utils';
 
 type Filter = 'TODOS' | 'NUEVOS' | 'EN_CURSO' | 'LISTOS' | 'ENTREGADOS' | 'CANCELADOS';
 

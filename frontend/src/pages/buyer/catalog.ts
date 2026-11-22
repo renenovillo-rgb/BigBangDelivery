@@ -69,6 +69,9 @@ export const PRODUCT_CATEGORIES: Category[] = [
   {
     id: 'hogar', label: 'Hogar', icon: Sofa,
     subs: [{ id: 'limpieza', label: 'Limpieza ecológica' }, { id: 'decoracion', label: 'Decoración' }, { id: 'cocina', label: 'Cocina' }],
+  },  {
+    id: 'despensa', label: 'Despensa y conservas', icon: Cherry,
+    subs: [{ id: 'miel', label: 'Miel' }, { id: 'mermeladas', label: 'Mermeladas' }, { id: 'conservas', label: 'Conservas' }],
   },
 ];
 
@@ -204,6 +207,18 @@ export const PRODUCTS: Product[] = [
     tone: 'from-[#F1E5D0] to-[#DFC9A0]', iconColor: 'text-[#8F6B2F]', categoryId: 'hogar', subId: 'decoracion',
     origin: 'Tejida a mano por artesanos de la zona con fibra natural de totora.',
     options: [{ label: 'Pequeña', price: 8 }, { label: 'Grande', price: 14 }],
+  },
+  {
+    id: 'miel', sellerId: 'gomez', name: 'Miel artesanal de flores silvestres', short: 'Miel', icon: Droplet, own: false, rating: 4.9,
+    tone: 'from-[#F8EBC2] to-[#F1D98F]', iconColor: 'text-[#B7792B]', categoryId: 'despensa', subId: 'miel',
+    origin: 'Miel 100% natural de colmenas de los valles altoandinos, extraída sin calentar ni refinar por familias apicultoras de Cuenca.',
+    options: [{ label: 'Frasco 250 g', price: 5.5 }, { label: 'Frasco 500 g', price: 10 }],
+  },
+  {
+    id: 'mermelada', sellerId: 'gomez', name: 'Mermelada de mora de castilla', short: 'Mermelada', icon: Cherry, own: false, rating: 4.7,
+    tone: 'from-[#EBDDF0] to-[#D3BCDD]', iconColor: 'text-[#7A4F8C]', categoryId: 'despensa', subId: 'mermeladas',
+    origin: 'Mermelada casera hecha con mora de castilla y azúcar de caña, sin conservantes ni colorantes.',
+    options: [{ label: 'Frasco 250 g', price: 4.5 }],
   },
 ];
 
@@ -385,6 +400,14 @@ const SELLER_LIST: Seller[] = [
     about: 'Familias que cosechan y tejen totora siguiendo técnicas heredadas. Cada pieza es única y está hecha con fibra natural renovable.',
     activities: ['Canastas y cestos', 'Esteras', 'Decoración artesanal'],
     badges: ['Fibra natural', 'Hecho a mano'], legend: 'Conoce a los artesanos', cover: 'icono',
+  },
+
+  {
+    id: 'gomez', name: 'Distribuidora Gómez & Hijos', kind: 'producer', tagline: 'Miel y conservas artesanales de los Andes',
+    location: 'Cuenca, Azuay', since: 2026, rating: 4.8, reviews: 36,
+    about: 'Empresa familiar que recolecta miel de colmenas de los valles altoandinos y elabora conservas caseras sin conservantes. Trabajamos de la mano con familias apicultoras de la zona.',
+    activities: ['Miel de flores silvestres', 'Mermeladas caseras', 'Entregas en Cuenca'],
+    badges: ['Hecho a mano', 'Sin conservantes'], legend: 'Conoce quiénes somos', cover: 'campo',
   },
 
   provider('mecanico-andes', 'Taller Los Andes', 'Mecánica de confianza donde la necesites', 'Norte de Quito', 2025, 4.8, 214,

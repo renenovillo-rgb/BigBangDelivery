@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import logoHorizonte from './assets/logoHorizonte.jpg';
+import { ViewSwitcher } from '../../components/ViewSwitcher';
+import { usePublicSeller } from '../../platform/platformContext';
 import {
-  MOCK_ORDERS, PRODUCT_CATEGORIES, PRODUCTS, SELLERS, SERVICE_CATEGORIES, SERVICES,
+  MOCK_ORDERS, PRODUCT_CATEGORIES, PRODUCTS, SERVICE_CATEGORIES, SERVICES,
 } from './catalog';
 import type { Category, Order, OrderStatus, Product, Seller, Service } from './catalog';
 
@@ -1167,7 +1169,7 @@ const DetailScreen = ({ go, product, selection, setSelection, onAdd }: {
   const subtotal = option.price * qty;
   const Icon = product.icon;
   const isLettuce = product.id === 'lechuga';
-  const seller = SELLERS[product.sellerId];
+  const seller = usePublicSeller(product.sellerId);
 
   return (
     <div className="min-h-screen bg-[#F7F3E8] pb-28">
@@ -1295,7 +1297,7 @@ const SERVICE_STEPS = [
 
 const ServiceDetailScreen = ({ go, service }: { go: Go; service: Service }) => {
   const [requesting, setRequesting] = useState(false);
-  const seller = SELLERS[service.sellerId];
+  const seller = usePublicSeller(service.sellerId);
   const Icon = service.icon;
 
   return (
@@ -1677,45 +1679,6 @@ const PaymentScreen = ({ go, product, selection, totals, billing, couponApplied,
   );
 };
 
-/* ------------------------- Floating Switcher ------------------------- */
-
-const FloatingSwitcher = ({ screen, go }: { screen: ScreenId; go: Go }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
-      {open && (
-        <div className="w-64 rounded-3xl bg-white/95 p-2 shadow-2xl ring-1 ring-black/10 backdrop-blur">
-          <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-widest text-[#6B7A6B]">Navegar pantallas</p>
-          {SCREENS.map((s, i) => {
-            const Icon = s.icon;
-            const active = screen === s.id;
-            return (
-              <button
-                key={s.id}
-                onClick={() => { go(s.id); setOpen(false); }}
-                className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-semibold transition ${active ? 'bg-[#4F6F52] text-[#F7F3E8]' : 'text-[#2F3A2F] hover:bg-[#DCE8D2]/60'}`}
-              >
-                <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs ${active ? 'bg-white/20' : 'bg-[#DCE8D2] text-[#4F6F52]'}`}>
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="flex-1">{i + 1}. {s.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Cambiar de pantalla"
-        aria-expanded={open}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2F3A2F] text-[#F7F3E8] shadow-xl shadow-black/30 transition active:scale-90 hover:bg-[#1F2820]"
-      >
-        {open ? <X className="h-6 w-6" /> : <LayoutGrid className="h-6 w-6" />}
-      </button>
-    </div>
-  );
-};
-
 /* ------------------------------ App ------------------------------ */
 
 export default function BuyerApp() {
@@ -1795,7 +1758,13 @@ export default function BuyerApp() {
         )}
       </div>
 
-      <FloatingSwitcher screen={screen} go={go} />
+      <ViewSwitcher
+        role="comprador"
+        title="Navegar pantallas"
+        items={SCREENS}
+        activeId={screen}
+        onSelect={(id) => go(id as ScreenId)}
+      />
     </div>
   );
 }

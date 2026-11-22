@@ -9,6 +9,19 @@ import './App.css';
 import { SellerLayout } from './pages/seller/SellerLayout';
 import { SellerProductsPage } from './pages/seller/ProductPage';
 import BuyerApp from './pages/buyer/BuyerApp';
+import { PlatformProvider } from './platform/PlatformProvider';
+import { SellerProvider } from './pages/seller/SellerProvider';
+
+// Vista del administrador (datos simulados, sin backend)
+import { AdminShell } from './pages/administrador/AdminShell';
+import { AdminDashboardPage } from './pages/administrador/AdminDashboardPage';
+import { AdminApprovalsPage } from './pages/administrador/ApprovalsPage';
+import { AdminVendorsPage } from './pages/administrador/VendorsPage';
+import { AdminVendorDetailPage } from './pages/administrador/VendorDetailPage';
+import { AdminOrdersPage } from './pages/administrador/AdminOrdersPage';
+import { AdminUsersPage } from './pages/administrador/AdminUsersPage';
+import { AdminCategoriesPage } from './pages/administrador/AdminCategoriesPage';
+import { AdminPlansPage } from './pages/administrador/AdminPlansPage';
 
 // Admin Pages
 import AdminLayout from './pages/admin/AdminLayout';
@@ -23,6 +36,8 @@ import SubscriptionsPage from './pages/admin/SubscriptionsPage';
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <PlatformProvider>
+      <SellerProvider>
       <Routes>
         <Route path="/admin" element={<AdminLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
@@ -46,8 +61,21 @@ function App() {
           <Route path="ajustes" element={<SellerSettingsPage />} />
           <Route index element={<Navigate to="/vendedor/resumen" replace />} />
         </Route>
+        <Route path="/administrador" element={<AdminShell />}>
+          <Route path="resumen" element={<AdminDashboardPage />} />
+          <Route path="aprobaciones" element={<AdminApprovalsPage />} />
+          <Route path="vendedores" element={<AdminVendorsPage />} />
+          <Route path="vendedores/:id" element={<AdminVendorDetailPage />} />
+          <Route path="pedidos" element={<AdminOrdersPage />} />
+          <Route path="usuarios" element={<AdminUsersPage />} />
+          <Route path="categorias" element={<AdminCategoriesPage />} />
+          <Route path="planes" element={<AdminPlansPage />} />
+          <Route index element={<Navigate to="/administrador/resumen" replace />} />
+        </Route>
         <Route path="/comprador" element={<BuyerApp />} />
       </Routes>
+      </SellerProvider>
+      </PlatformProvider>
     </BrowserRouter>
   );
 }

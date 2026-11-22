@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
-import type { Pedido, Producto, SolicitudActualizacionPerfil, SolicitudHistoriaProducto } from '../../types';
-import {
-  INITIAL_CHANGE_REQUESTS, INITIAL_ORDERS, INITIAL_PRODUCTS, INITIAL_PROFILE, INITIAL_SETTINGS,
-  INITIAL_STORIES, PLAN, SUBSCRIPTION,
-} from './sellerData';
+import type { PerfilVendedor, Pedido, Producto, SolicitudActualizacionPerfil, SolicitudHistoriaProducto } from '../../types';
+import { INITIAL_PROFILE, INITIAL_SETTINGS } from './sellerData';
 import type { ProductForm, SellerSettings } from './sellerData';
 import { SellerContext } from './sellerContext';
 import type { ChangeField, SellerContextValue } from './sellerContext';
-import { NEXT_ORDER_STEP, stamp } from './utils';
+import { usePlatform } from '../../platform/platformContext';
+import type { ProfileRequest, PublicProfileChanges } from '../../platform/platformData';
+import { NEXT_ORDER_STEP, stamp } from '../../components/utils';
+
+/* El panel del vendedor muestra la tienda SEL-001 de la plataforma compartida */
+const SELLER_ID = 'SEL-001';
+const STORE_ID = 'store-1';
 
 const slug = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -52,23 +54,31 @@ const fromForm = (f: ProductForm): Partial<Producto> => {
 };
 
 export const SellerProvider = ({ children }: { children: ReactNode }) => {
-  const [profile] = useState(INITIAL_PROFILE);
+  const platform = usePlatform();
+  const { notify, setProducts, setOrders, setStories, setFiscalRequests, setProfileRequests } = platform;
+
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
   const [storeOpen, setStoreOpenState] = useState(true);
-  const [products, setProducts] = useState(INITIAL_PRODUCTS);
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
-  const [stories, setStories] = useState(INITIAL_STORIES);
-  const [changeRequests, setChangeRequests] = useState(INITIAL_CHANGE_REQUESTS);
-  const [toast, setToast] = useState<{ message: string; tone: 'ok' | 'error' } | null>(null);
-  const toastTimer = useRef<number | undefined>(undefined);
 
-  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
-
-  const notify: SellerContextValue['notify'] = (message, tone = 'ok') => {
-    window.clearTimeout(toastTimer.current);
-    setToast({ message, tone });
-    toastTimer.current = window.setTimeout(() => setToast(null), 3500);
+  // Vista del vendedor sobre los datos de la plataforma
+  const vendor = platform.vendors.find((v) => v.id === SELLER_ID)!;
+  const plan = platform.plans.find((p) => p.id === vendor.planId) ?? platform.plans[0];
+  const profile: PerfilVendedor = {
+    ...INITIAL_PROFILE,
+    nombreCompleto: vendor.nombreCompleto,
+    nombreComercial: vendor.nombreComercial,
+    email: vendor.email,
+    telefono: vendor.telefono,
+    identificacionFiscal: vendor.identificacionFiscal,
+    direccionNegocio: vendor.direccionNegocio,
+    establecimiento: vendor.establecimiento,
+    puntoEmision: vendor.puntoEmision,
   };
+  const products = platform.products.filter((p) => p.tiendaId === STORE_ID);
+  const orders = platform.orders.filter((o) => o.tiendaId === STORE_ID);
+  const stories = platform.stories.filter((s) => s.vendedorId === SELLER_ID);
+  const changeRequests = platform.fiscalRequests.filter((r) => r.vendedorId === SELLER_ID);
+  const profileRequests = platform.profileRequests.filter((r) => r.vendedorId === SELLER_ID);
 
   const patchOrder = (id: string, patch: Partial<Pedido>) =>
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch, fechaActualizacion: stamp(new Date()) } : o)));
@@ -84,14 +94,17 @@ export const SellerProvider = ({ children }: { children: ReactNode }) => {
 
   const value: SellerContextValue = {
     profile,
-    plan: PLAN,
-    subscription: SUBSCRIPTION,
+    plan,
+    subscription: { id: 'SUB-001', tiendaId: STORE_ID, planId: plan.id, fechaInicio: vendor.fechaRegistro, fechaFin: vendor.suscripcionFin, estado: 'activa' },
     settings,
     storeOpen,
     products,
     orders,
     stories,
     changeRequests,
+    profileRequests,
+    publicProfile: vendor.catalogId ? platform.publicSeller(vendor.catalogId) : undefined,
+    categories: platform.categories.filter((c) => c.activa).map((c) => c.nombre),
 
     notify,
 
@@ -146,15 +159,15 @@ export const SellerProvider = ({ children }: { children: ReactNode }) => {
           ),
         );
       } else {
-        if (products.length >= PLAN.limiteProductos) {
-          notify(`Llegaste al límite de tu plan (${PLAN.limiteProductos} publicaciones).`, 'error');
+        if (products.length >= plan.limiteProductos) {
+          notify(`Llegaste al límite de tu plan (${plan.limiteProductos} publicaciones).`, 'error');
           return false;
         }
         const created: Producto = {
           ...(fields as Producto),
-          id: nextCode('PROD', products.map((p) => p.id)),
-          tiendaId: 'store-1',
-          vendedorId: profile.id,
+          id: nextCode('PROD', platform.products.map((p) => p.id)),
+          tiendaId: STORE_ID,
+          vendedorId: SELLER_ID,
           estado,
           fechaCreacion: stamp(new Date()),
         };
@@ -192,10 +205,10 @@ export const SellerProvider = ({ children }: { children: ReactNode }) => {
       const product = products.find((p) => p.id === productId);
       const created: SolicitudHistoriaProducto = {
         id: `HIS-${Date.now()}`,
-        codigoHistoria: nextCode('HIS', stories.map((s) => s.codigoHistoria)),
+        codigoHistoria: nextCode('HIS', platform.stories.map((s) => s.codigoHistoria)),
         productoId: productId,
         nombreProducto: product?.nombre ?? 'Producto',
-        vendedorId: profile.id,
+        vendedorId: SELLER_ID,
         historiaPropuesta: historia.trim(),
         mediaUrl: mediaUrl.trim(),
         estado: 'EN_REVISION',
@@ -214,8 +227,8 @@ export const SellerProvider = ({ children }: { children: ReactNode }) => {
         nombreComercial: profile.nombreComercial ?? 'No registrado',
       };
       const created: SolicitudActualizacionPerfil = {
-        id: nextCode('REQ', changeRequests.map((r) => r.id)),
-        vendedorId: profile.id,
+        id: nextCode('REQ', platform.fiscalRequests.map((r) => r.id)),
+        vendedorId: SELLER_ID,
         campoAModificar: campo,
         valorActual: current[campo],
         nuevoValor: nuevoValor.trim(),
@@ -223,28 +236,25 @@ export const SellerProvider = ({ children }: { children: ReactNode }) => {
         estado: 'PENDIENTE',
         fechaCreacion: stamp(new Date()),
       };
-      setChangeRequests((prev) => [created, ...prev]);
+      setFiscalRequests((prev) => [created, ...prev]);
+      platform.addLog(`${vendor.nombreComercial} solicitó cambiar su ${campo === 'identificacionFiscal' ? 'RUC' : campo}.`, 'warn');
       notify('Solicitud enviada. El administrador revisará el cambio.');
+    },
+
+    addProfileRequest: (cambios: PublicProfileChanges, justificacion: string) => {
+      const created: ProfileRequest = {
+        id: nextCode('PUB', platform.profileRequests.map((r) => r.id)),
+        vendedorId: SELLER_ID,
+        cambios,
+        justificacion: justificacion.trim(),
+        estado: 'PENDIENTE',
+        fechaCreacion: stamp(new Date()),
+      };
+      setProfileRequests((prev) => [created, ...prev]);
+      platform.addLog(`${vendor.nombreComercial} solicitó cambios en su perfil público.`, 'warn');
+      notify('Solicitud enviada. Cuando el administrador la apruebe, los compradores verán tu nuevo perfil.');
     },
   };
 
-  return (
-    <SellerContext.Provider value={value}>
-      {children}
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-x-4 bottom-6 z-[80] flex justify-center"
-        >
-          <div className="pointer-events-auto flex max-w-md items-center gap-3 rounded-2xl bg-[#2F3A2F] px-4 py-3 text-sm font-semibold text-[#F7F3E8] shadow-2xl">
-            {toast.tone === 'ok'
-              ? <CheckCircle2 className="h-5 w-5 shrink-0 text-[#86A789]" />
-              : <AlertCircle className="h-5 w-5 shrink-0 text-[#F2B5A3]" />}
-            {toast.message}
-          </div>
-        </div>
-      )}
-    </SellerContext.Provider>
-  );
+  return <SellerContext.Provider value={value}>{children}</SellerContext.Provider>;
 };

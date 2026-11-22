@@ -3,8 +3,8 @@ import type { FormEvent } from 'react';
 import { BookOpen, Paperclip, Plus } from 'lucide-react';
 import type { SolicitudHistoriaProducto } from '../../types';
 import { useSeller } from './sellerContext';
-import { Button, Card, EmptyState, Field, Modal, PageHeading, Pill } from './ui';
-import { STORY_STATUS, inputCls, prettyStamp } from './utils';
+import { Button, Card, EmptyState, Field, Modal, PageHeading, Pill } from '../../components/ui';
+import { STORY_STATUS, inputCls, prettyStamp } from '../../components/utils';
 
 const MIN_STORY = 40;
 

@@ -3,8 +3,8 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Wrench, Leaf, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { TipoItem } from '../../types';
-import logoHorizonte from '../buyer/assets/logoHorizonte.jpg';
+import type { TipoItem } from '../types';
+import logoHorizonte from '../pages/buyer/assets/logoHorizonte.jpg';
 import { TONES } from './utils';
 import type { Tone } from './utils';
 
@@ -19,7 +19,7 @@ export const Container = ({ children, className = '' }: { children: ReactNode; c
 );
 
 /* Logo horizontal compacto (cabeceras y menú) */
-export const BrandInline = ({ onDark = false }: { onDark?: boolean }) => (
+export const BrandInline = ({ onDark = false, subtitle = 'Panel del vendedor' }: { onDark?: boolean; subtitle?: string }) => (
   <div className="flex items-center gap-2.5">
     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F7F3E8] p-0.5">
       <img src={logoHorizonte} alt="Horizonte Sostenible" className="h-full w-full object-contain mix-blend-multiply" />
@@ -29,7 +29,7 @@ export const BrandInline = ({ onDark = false }: { onDark?: boolean }) => (
         big<span className={onDark ? 'text-[#DCE8D2]' : 'text-[#4F6F52]'}>ban</span>
       </span>
       <span className={`hidden text-[9px] font-medium uppercase tracking-[0.2em] sm:block ${onDark ? 'text-[#DCE8D2]' : 'text-[#6B7A6B]'}`}>
-        Panel del vendedor
+        {subtitle}
       </span>
     </span>
   </div>

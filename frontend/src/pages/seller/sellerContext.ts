@@ -3,6 +3,8 @@ import type {
   PerfilVendedor, Pedido, PlanSuscripcion, Producto, SolicitudActualizacionPerfil,
   SolicitudHistoriaProducto, SuscripcionVendedor,
 } from '../../types';
+import type { Seller } from '../buyer/catalog';
+import type { ProfileRequest, PublicProfileChanges } from '../../platform/platformData';
 import type { ProductForm, SellerSettings } from './sellerData';
 
 export type ChangeField = SolicitudActualizacionPerfil['campoAModificar'];
@@ -17,6 +19,11 @@ export interface SellerContextValue {
   orders: Pedido[];
   stories: SolicitudHistoriaProducto[];
   changeRequests: SolicitudActualizacionPerfil[];
+  profileRequests: ProfileRequest[];
+  /** Perfil público tal como lo ve el comprador en "Conoce quiénes somos" */
+  publicProfile?: Seller;
+  /** Categorías activas definidas por el administrador */
+  categories: string[];
 
   notify: (message: string, tone?: 'ok' | 'error') => void;
   setStoreOpen: (open: boolean) => void;
@@ -35,6 +42,7 @@ export interface SellerContextValue {
 
   addStory: (productId: string, historia: string, mediaUrl: string) => void;
   addChangeRequest: (campo: ChangeField, nuevoValor: string, justificacion: string) => void;
+  addProfileRequest: (cambios: PublicProfileChanges, justificacion: string) => void;
 }
 
 export const SellerContext = createContext<SellerContextValue | null>(null);
