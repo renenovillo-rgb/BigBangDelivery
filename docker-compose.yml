@@ -6,9 +6,9 @@ services:
     container_name: big_ban_postgres_db
     restart: always
     environment:
-      POSTGRES_DB: big_ban_community_db
-      POSTGRES_USER: big_ban_user
-      POSTGRES_PASSWORD: big_ban_secure_password_2026
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
