@@ -21,6 +21,12 @@ export class AuthService {
   ) {}
 
   async registrar(dto: RegisterDto): Promise<RespuestaAutenticacion> {
+    if ((dto.rol as string) === 'administrador') {
+      throw new ConflictException(
+        'No está permitido registrarse con rol de administrador',
+      );
+    }
+
     const existe = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -74,6 +80,19 @@ export class AuthService {
   async login(dto: LoginDto): Promise<RespuestaAutenticacion> {
     const usuario = await this.userRepository.findOne({
       where: { email: dto.email },
+      select: {
+        id: true,
+        numeroCedula: true,
+        nombres: true,
+        apellidos: true,
+        email: true,
+        telefono: true,
+        password: true,
+        rol: true,
+        estado: true,
+        direccionPrincipal: true,
+        fechaCreacion: true,
+      },
     });
     if (!usuario) {
       throw new UnauthorizedException('Credenciales de acceso incorrectas');
@@ -85,6 +104,10 @@ export class AuthService {
     );
     if (!esPasswordValida) {
       throw new UnauthorizedException('Credenciales de acceso incorrectas');
+    }
+
+    if (usuario.estado !== 'activo') {
+      throw new UnauthorizedException('Tu cuenta se encuentra suspendida o inactiva');
     }
 
     const payload = {
