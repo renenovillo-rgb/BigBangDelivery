@@ -11,9 +11,16 @@ import { User } from '../users/entities/user.entity';
   imports: [
     TypeOrmModule.forFeature([User]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'tu_clave_secreta_jwt_muy_segura_2026',
-      signOptions: { expiresIn: '8h' },
+    JwtModule.registerAsync({
+      useFactory: () => {
+        if (!process.env.JWT_SECRET) {
+          throw new Error('JWT_SECRET no está definido en el entorno');
+        }
+        return {
+          secret: process.env.JWT_SECRET,
+          signOptions: { expiresIn: '8h' },
+        };
+      },
     }),
   ],
   controllers: [AuthController],

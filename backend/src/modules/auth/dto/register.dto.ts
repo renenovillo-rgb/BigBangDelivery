@@ -26,8 +26,8 @@ export class RegisterDto {
     @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' }) 
     password: string; 
     
-    @IsEnum(['comprador', 'vendedor', 'administrador'], { message: 'El rol debe ser válido' }) 
-    rol: RolUsuario; 
+    @IsEnum(['comprador', 'vendedor'], { message: 'El rol debe ser válido' })
+    rol: 'comprador' | 'vendedor'; 
     
     @IsOptional() 
     @IsString() 
